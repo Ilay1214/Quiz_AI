@@ -62,7 +62,7 @@ def generate_quiz_questions(text: str, num_questions: int, mode: str) -> dict:
                 "content": user_message,
             },
         ],
-        model="mixtral-8x7b-32768", # You can choose a different Groq model if preferred
+        model="llama-3.3-70b-versatile", # You can choose a different Groq model if preferred
         response_format={"type": "json_object"}, # Request JSON output
         temperature=0.7,
         max_tokens=2048, # Adjust based on expected question length and number
