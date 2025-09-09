@@ -55,7 +55,11 @@ const Quiz = () => {
 
   const [selectedAnswers, setSelectedAnswers] = useState<string[]>([]);
   const [showFeedback, setShowFeedback] = useState(false);
-  const [currentFeedback, setCurrentFeedback] = useState<{ correct: boolean; explanation?: string } | null>(null);
+  const [currentFeedback, setCurrentFeedback] = useState<{
+    correct: boolean; 
+    explanation?: string;
+    correctAnswers?: string[] | null; 
+  } | null>(null);
 
   const currentQuestion = getCurrentQuestion();
   const progress = getProgress();
@@ -193,7 +197,8 @@ const Quiz = () => {
     
     setCurrentFeedback({
       correct,
-      explanation: currentQuestion.explanation
+      explanation: currentQuestion.explanation,
+      correctAnswers: correct ? null : currentQuestion.correctAnswers,
     });
     setShowFeedback(true);
   };
@@ -440,6 +445,11 @@ const Quiz = () => {
                           {currentFeedback.correct ? 'Correct!' : 'Incorrect'}
                         </span>
                       </div>
+                      {!currentFeedback.correct && currentFeedback.correctAnswers && currentQuestion.type !== 'text' && ( 
+                        <p className="text-sm text-destructive-foreground mb-2">
+                          **Correct Answer(s):** {currentFeedback.correctAnswers.join(', ')}
+                        </p>
+                      )}
                       {currentFeedback.explanation && (
                         <p className="text-sm text-muted-foreground">
                           {currentFeedback.explanation}
