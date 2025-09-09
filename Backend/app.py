@@ -34,11 +34,13 @@ def generate_questions():
         filename = file.filename
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(filepath)
+        print(f"DEBUG: File saved to {filepath}") # Added debug print
 
         num_questions = request.form.get('numQuestions', type=int)
         duration = request.form.get('duration', type=int)
         mode = request.form.get('mode')
-        
+        print(f"DEBUG: Quiz parameters - numQuestions: {num_questions}, duration: {duration}, mode: {mode}") # Added debug print
+
         job_id = f"job_{os.urandom(16).hex()}"
         
         # Initialize job status
@@ -57,14 +59,46 @@ def generate_questions():
         # For simplicity, we'll run it synchronously for now, but be aware
         # this will block the request until AI processing is done.
         try:
+            print(f"DEBUG: Starting text extraction for job {job_id}...") # Added debug print
             extracted_text = extract_text_from_file(filepath)
+            print(f"DEBUG: Text extracted. Length: {len(extracted_text)} characters. First 200 chars: {extracted_text[:200]}...") # Added debug print
+
+            # --- CRITICAL: Check if extracted_text is actually sufficient ---
+            if not extracted_text or (len(extracted_text) < 100 and num_questions > 1):
+                raise ValueError("The provided text is too short to generate meaningful quiz questions. Please provide more content.")
+
+            print(f"DEBUG: Generating quiz questions for job {job_id} with Groq...") # Added debug print
             generated_quiz_data = generate_quiz_questions(extracted_text, num_questions, mode)
+            print(f"DEBUG: Groq API response (generated_quiz_data): {generated_quiz_data}") # Added debug print
             
-            # Assuming generated_quiz_data is like {"questions": [...]}
+            # --- NEW LOGIC: Handle Groq's error response ---
+            # Check if the overall response from Groq indicates an error
+            if generated_quiz_data and 'questions' in generated_quiz_data and isinstance(generated_quiz_data['questions'], dict) and 'error' in generated_quiz_data['questions']:
+                groq_error = generated_quiz_data['questions']['error']
+                raise RuntimeError(f"Groq API returned an error: {groq_error}")
+
+            # Ensure questions are always an array, even if Groq returns a single object
+            raw_questions = generated_quiz_data.get("questions", [])
+            
+            if isinstance(raw_questions, dict):
+                # If Groq returned a single question object directly under "questions", wrap it in a list
+                questions_list = [raw_questions]
+            elif isinstance(raw_questions, list):
+                # If Groq returned a list of questions (as intended), use it directly
+                questions_list = raw_questions
+            else:
+                # Fallback for unexpected format, default to empty list and log a warning
+                print(f"WARNING: Unexpected format for questions from Groq, defaulting to empty list: {type(raw_questions)}")
+                questions_list = []
+
+            # Check if any questions were actually generated
+            if not questions_list:
+                raise RuntimeError("Groq API generated no questions, or the output format was unexpected/empty.")
+
             # We need to construct a full QuizSession object that matches frontend's api.ts
             quiz_session = {
                 "id": job_id, # Use job_id as session_id for simplicity
-                "questions": generated_quiz_data.get("questions", []),
+                "questions": questions_list, # Use the ensured list of questions
                 "mode": mode,
                 "duration": duration if mode == 'exam' else None,
                 "startTime": "2023-10-27T10:00:00Z" # You might want to generate this dynamically
@@ -72,14 +106,20 @@ def generate_questions():
 
             job_statuses[job_id]["status"] = "completed"
             job_statuses[job_id]["session"] = quiz_session
-        except Exception as e:
+            print(f"DEBUG: Job {job_id} completed successfully.") # Added debug print
+        except (ValueError, RuntimeError) as e: # Catch specific errors for better handling
             job_statuses[job_id]["status"] = "failed"
             job_statuses[job_id]["error"] = str(e)
-            print(f"Error processing job {job_id}: {e}")
+            print(f"ERROR: Job {job_id} failed: {e}")
+        except Exception as e:
+            job_statuses[job_id]["status"] = "failed"
+            job_statuses[job_id]["error"] = "An unexpected error occurred during quiz generation."
+            print(f"ERROR: Job {job_id} failed with an unexpected error: {e}")
         finally:
             # Clean up the uploaded file after processing
             if os.path.exists(filepath):
                 os.remove(filepath)
+                print(f"DEBUG: Cleaned up uploaded file: {filepath}") # Added debug print
 
 
         return jsonify({"jobId": job_id}), 202

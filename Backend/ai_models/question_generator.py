@@ -17,34 +17,41 @@ def generate_quiz_questions(text: str, num_questions: int, mode: str) -> dict:
     # Construct the prompt
     system_message = f"""
     You are an AI assistant specialized in creating engaging and informative quiz questions from provided text.
-    Your task is to generate {num_questions} quiz questions based on the following text.
+    Your task is to generate exactly {num_questions} multiple-choice quiz questions based on the following text.
     The quiz should be in '{mode}' mode.
+
+    All questions must be multiple-choice. There are two types of multiple-choice questions:
+    1.  'single': These questions must have exactly 4 options, and only 1 of them should be the correct answer.
+    2.  'multiple': These questions must have exactly 5 options, and exactly 2 of them should be the correct answers.
+    You should vary between 'single' and 'multiple' types, but always adhere to the specified option and correct answer counts.
 
     For each question, provide:
     - An 'id' (unique string)
     - The 'question' text
-    - The 'type' of question (e.g., 'single' for multiple choice with one correct answer, 'multiple' for multiple choice with multiple correct answers, or 'text' for a short answer question).
-    - 'options' (an array of strings) if the type is 'single' or 'multiple'.
+    - The 'type' of question ('single' or 'multiple')
+    - 'options' (an array of strings) containing all answer choices.
     - 'correctAnswers' (an array of strings) containing the correct answer(s).
-    - An 'explanation' (string) for the correct answer.
+    - An 'explanation' (string) for the correct answer(s).
 
-    The output should be a JSON array of quiz question objects.
+    The output must be a JSON array of quiz question objects. Ensure the JSON is perfectly formed.
+
     Example JSON structure:
     [
         {{
             "id": "q1",
-            "question": "What is [Concept A]?",
+            "question": "What is the capital of France?",
             "type": "single",
-            "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
-            "correctAnswers": ["Option 2"],
-            "explanation": "Explanation for Concept A."
+            "options": ["Berlin", "Madrid", "Paris", "Rome"],
+            "correctAnswers": ["Paris"],
+            "explanation": "Paris is the capital and most populous city of France."
         }},
         {{
             "id": "q2",
-            "question": "Describe [Concept B].",
-            "type": "text",
-            "correctAnswers": ["Key aspects of Concept B"],
-            "explanation": "Explanation for Concept B."
+            "question": "Which of these are programming languages?",
+            "type": "multiple",
+            "options": ["Python", "HTML", "CSS", "JavaScript", "SQL"],
+            "correctAnswers": ["Python", "JavaScript"],
+            "explanation": "Python and JavaScript are widely used programming languages. HTML and CSS are markup and stylesheet languages, respectively. SQL is a database query language."
         }}
     ]
     """
@@ -62,7 +69,7 @@ def generate_quiz_questions(text: str, num_questions: int, mode: str) -> dict:
                 "content": user_message,
             },
         ],
-        model="mixtral-8x7b-32768", # You can choose a different Groq model if preferred
+        model="llama-3.3-70b-versatile", # You can choose a different Groq model if preferred
         response_format={"type": "json_object"}, # Request JSON output
         temperature=0.7,
         max_tokens=2048, # Adjust based on expected question length and number

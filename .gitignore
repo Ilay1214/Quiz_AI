@@ -1,5 +1,5 @@
 Frontend/node_moduless/*
 Backend/venv/*
 Backend/uploads/*
-Backend/__pycache__/*
+Backend/__pycache__/
 Backend/.env
