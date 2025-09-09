@@ -377,6 +377,13 @@ const Quiz = () => {
                   {currentQuestion.question}
                 </div>
 
+                {/* Added hint for multiple-choice questions */}
+                {currentQuestion.type === 'multiple' && currentQuestion.correctAnswers.length > 1 && (
+                  <p className="text-sm text-muted-foreground -mt-4">
+                    (Select {currentQuestion.correctAnswers.length} answers)
+                  </p>
+                )}
+
                 {/* Answer Options */}
                 <div className="space-y-3">
                   {currentQuestion.type === 'single' && currentQuestion.options && (
