@@ -20,6 +20,8 @@ def generate_quiz_questions(text: str, num_questions: int, mode: str) -> dict:
     Your task is to generate exactly {num_questions} multiple-choice quiz questions based on the following text.
     The quiz should be in '{mode}' mode.
 
+    **Crucially, detect the language of the provided text and generate all questions, options, correct answers, and explanations in that same language.**
+
     All questions must be multiple-choice. There are two types of multiple-choice questions:
     1.  'single': These questions must have exactly 4 options, and only 1 of them should be the correct answer.
     2.  'multiple': These questions must have exactly 5 options, and exactly 2 of them should be the correct answers.
@@ -35,7 +37,7 @@ def generate_quiz_questions(text: str, num_questions: int, mode: str) -> dict:
 
     The output must be a JSON array of quiz question objects. Ensure the JSON is perfectly formed.
 
-    Example JSON structure:
+    Example JSON structure (Note: example is in English, but output should match input language):
     [
         {{
             "id": "q1",
@@ -56,7 +58,7 @@ def generate_quiz_questions(text: str, num_questions: int, mode: str) -> dict:
     ]
     """
 
-    user_message = f"Generate {num_questions} quiz questions from the following text:\n\n{text}"
+    user_message = f"Generate {num_questions} quiz questions from the following text. Ensure the output language matches the input language:\n\n{text}"
 
     chat_completion = client.chat.completions.create(
         messages=[
