@@ -2,39 +2,87 @@ import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Clock, Zap, BookOpen, Target } from "lucide-react";
+import { Clock, Zap, BookOpen, Target, LogOut } from "lucide-react";
+import { useAuthStore } from "@/store/authStore";
+// Removed Header import
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const Landing = () => {
   const navigate = useNavigate();
   const [isMounted, setIsMounted] = useState(false);
+  const { currentUser, logout } = useAuthStore();
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
   const handleModeSelect = (mode: 'exam' | 'practice') => {
+    // Allow guests to proceed to setup
     if (isMounted) {
       navigate('/setup', { state: { mode } });
     }
   };
 
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative">
       {/* Hero Section */}
       <div className="relative bg-gradient-to-br from-primary to-accent text-white">
+        {currentUser && (
+          <div className="absolute top-0 right-0 p-4 z-50">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm" className="text-white border-white/50 hover:bg-white/10 hover:text-white"><LogOut className="w-4 h-4 mr-2" />Logout</Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Logout?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to log out?
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleLogout}>Logout</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        )}
         <div className="container mx-auto px-4 py-20">
           <div className="max-w-4xl mx-auto text-center">
-            {/* Replaced h1 with img for logo */}
             <img
               src="/logo.png"
               alt="StudyQuiz AI Logo"
               className="mx-auto h-64 w-64 mb-4" // Increased size here again
             />
-            {/* Removed the h1 tag here */}
             <p className="text-xl mb-8 opacity-90">
               Transform your study materials into personalized quizzes with AI.
               Practice or take timed exams to test your knowledge.
             </p>
+            {!currentUser ? (
+              <div className="space-x-4">
+                <Button size="lg" onClick={() => navigate('/login')}>Login</Button>
+                <Button size="lg" variant="secondary" onClick={() => navigate('/register')}>Register</Button>
+                <Button size="lg" variant="ghost" onClick={() => navigate('/setup')}>Continue as Guest</Button>
+              </div>
+            ) : (
+              <p className="text-lg">Welcome, {currentUser.mail}!</p>
+            )}
           </div>
         </div>
       </div>

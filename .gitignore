@@ -3,3 +3,4 @@ Backend/venv/*
 Backend/uploads/*
 Backend/__pycache__/
 Backend/.env
+Database/__pycache__/

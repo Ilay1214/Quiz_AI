@@ -1,32 +1,28 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuizStore } from "@/store/quizStore";
-import { 
-  Home, 
-  RefreshCw, 
-  CheckCircle, 
-  XCircle, 
+import { useToast } from "@/hooks/use-toast";
+import {
+  RefreshCw,
+  CheckCircle,
+  XCircle,
   Flag,
   Trophy,
   Target,
-  Clock
+  Clock,
 } from "lucide-react";
+import Header from "@/components/common/Header";
 
 const Results = () => {
   const navigate = useNavigate();
   const [filter, setFilter] = useState<'all' | 'correct' | 'incorrect' | 'flagged'>('all');
-  
-  const {
-    session,
-    answers,
-    flaggedQuestions,
-    isSubmitted,
-    resetQuiz,
-  } = useQuizStore();
+  const { session, answers, flaggedQuestions, isSubmitted, resetQuiz } = useQuizStore();
+
+  // Removed useEffect for redirecting unauthenticated users
 
   const results = useMemo(() => {
     if (!session || !isSubmitted) return null;
@@ -114,18 +110,8 @@ const Results = () => {
 
   return (
     <div className="min-h-screen bg-background py-8">
-      <div className="container mx-auto px-4 max-w-4xl">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <Trophy className="w-8 h-8 text-primary" />
-            <h1 className="text-3xl font-bold">Quiz Results</h1>
-          </div>
-          <p className="text-muted-foreground">
-            {session.mode === 'exam' ? 'Exam' : 'Practice'} completed!
-          </p>
-        </div>
-
+      <Header showBackButton={true} title="Quiz Results" />
+      <div className="container mx-auto px-4 max-w-4xl relative mt-8">
         {/* Score Overview */}
         <div className="grid md:grid-cols-3 gap-6 mb-8">
           <Card className={`text-center ${getGradeBg(results.percentage)}`}>
@@ -298,7 +284,6 @@ const Results = () => {
             Retake with Same File
           </Button>
           <Button variant="outline" onClick={handleHome} size="lg">
-            <Home className="w-4 h-4 mr-2" />
             Back to Home
           </Button>
         </div>

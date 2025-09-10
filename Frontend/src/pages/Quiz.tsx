@@ -4,18 +4,19 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useQuizStore } from "@/store/quizStore";
+import { useAuthStore } from "@/store/authStore";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  ArrowLeft, 
-  ArrowRight, 
-  Flag, 
-  Clock, 
-  CheckCircle, 
-  Circle, 
+import {
+  ArrowLeft,
+  ArrowRight,
+  Flag,
+  Clock,
+  CheckCircle,
+  Circle,
   AlertCircle,
-  Home,
-  Send
+  Send,
 } from "lucide-react";
+import Header from "@/components/common/Header";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,6 +32,7 @@ import {
 const Quiz = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { currentUser, logout } = useAuthStore();
   
   const {
     session,
@@ -102,19 +104,9 @@ const Quiz = () => {
     }
   }, [currentQuestion, getAnswer]);
 
-  // Redirect if no session
-  useEffect(() => {
-    if (!session) {
-      navigate('/setup');
-    }
-  }, [session, navigate]);
+  // Removed useEffect for redirecting unauthenticated users
 
-  // Redirect if already submitted
-  useEffect(() => {
-    if (isSubmitted) {
-      navigate('/results');
-    }
-  }, [isSubmitted, navigate]);
+  // Removed useEffect for redirecting already submitted users
 
   if (!session || !currentQuestion) {
     return (
@@ -186,6 +178,8 @@ const Quiz = () => {
     navigate('/');
   };
 
+  // Removed handleLogout as it's now in Header component
+
   const checkAnswer = () => {
     if (session.mode !== 'practice' || selectedAnswers.length === 0) return;
     
@@ -221,76 +215,68 @@ const Quiz = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
-                <Home className="w-4 h-4" />
-              </Button>
-              <h1 className="text-xl font-semibold">StudyQuiz AI</h1>
-            </div>
+      <Header showBackButton={true} title="Quiz" />
+      {/* Quiz-specific header: Timer and Submit/Exit buttons */}
+      <div className="border-b bg-card">
+        <div className="container mx-auto px-4 py-3 flex justify-end items-center">
+          <div className="flex items-center gap-4">
+            {session.mode === 'exam' ? (
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4" />
+                <span className={`font-mono text-lg ${timeRemaining < 300 ? 'text-destructive' : ''}`}>
+                  {formatTime(timeRemaining)}
+                </span>
+              </div>
+            ) : (
+              <Badge variant="secondary">Practice Mode</Badge>
+            )}
             
-            <div className="flex items-center gap-4">
-              {session.mode === 'exam' ? (
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4" />
-                  <span className={`font-mono text-lg ${timeRemaining < 300 ? 'text-destructive' : ''}`}>
-                    {formatTime(timeRemaining)}
-                  </span>
-                </div>
-              ) : (
-                <Badge variant="secondary">Practice Mode</Badge>
-              )}
-              
-              <div className="flex gap-2">
-                {session.mode === 'exam' && (
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button size="sm">
-                        <Send className="w-4 h-4 mr-2" />
-                        Submit Now
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Submit Exam?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          You have answered {progress.answered} out of {progress.total} questions.
-                          Are you sure you want to submit your exam?
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleSubmit}>Submit</AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                )}
-                
+            <div className="flex gap-2">
+              {session.mode === 'exam' && (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button variant="outline" size="sm">Exit</Button>
+                    <Button size="sm">
+                      <Send className="w-4 h-4 mr-2" />
+                      Submit Now
+                    </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Exit Quiz?</AlertDialogTitle>
+                      <AlertDialogTitle>Submit Exam?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        Your progress will be lost. Are you sure you want to exit?
+                        You have answered {progress.answered} out of {progress.total} questions.
+                        Are you sure you want to submit your exam?
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleExit}>Exit</AlertDialogAction>
+                      <AlertDialogAction onClick={handleSubmit}>Submit</AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
-              </div>
+              )}
+              
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" size="sm">Exit</Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Exit Quiz?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Your progress will be lost. Are you sure you want to exit?
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleExit}>Exit</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </div>
         </div>
-      </header>
+      </div>
 
       <div className="container mx-auto px-4 py-6">
         <div className="grid lg:grid-cols-4 gap-6">
