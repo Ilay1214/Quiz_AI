@@ -452,15 +452,38 @@ const Quiz = () => {
                           {currentFeedback.correct ? 'Correct!' : 'Incorrect'}
                         </span>
                       </div>
-                      {!currentFeedback.correct && currentFeedback.correctAnswers && currentQuestion.type !== 'text' && ( 
-                        <p className="text-sm text-destructive-foreground mb-2">
-                          **Correct Answer(s):** {currentFeedback.correctAnswers.join(', ')}
-                        </p>
+
+                      {!currentFeedback.correct && ( // Only show user's answer if incorrect
+                        <div className="mb-2">
+                          <span className="text-sm font-medium text-muted-foreground">Your Answer(s):</span>
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {selectedAnswers.length > 0 ? (
+                              selectedAnswers.map((answer, i) => (
+                                <Badge key={i} variant="outline">{answer}</Badge>
+                              ))
+                            ) : (
+                              <span className="text-muted-foreground italic">No answer provided</span>
+                            )}
+                          </div>
+                        </div>
                       )}
+
+                      {!currentFeedback.correct && currentFeedback.correctAnswers && currentQuestion.type !== 'text' && (
+                        <div className="mb-2">
+                          <span className="text-sm font-bold text-destructive-foreground">Correct Answer(s):</span> {/* Changed from p to span and added font-bold */}
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {currentFeedback.correctAnswers.map((answer, i) => (
+                              <Badge key={i} variant="default">{answer}</Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
                       {currentFeedback.explanation && (
-                        <p className="text-sm text-muted-foreground">
-                          {currentFeedback.explanation}
-                        </p>
+                        <div className="pt-2 border-t"> {/* Added border-t for separation */}
+                          <span className="text-sm font-bold text-muted-foreground">Explanation:</span> {/* Added font-bold */}
+                          <p className="text-sm mt-1">{currentFeedback.explanation}</p>
+                        </div>
                       )}
                     </CardContent>
                   </Card>
