@@ -75,14 +75,22 @@ def generate_quiz_questions(text: str, num_questions: int, mode: str) -> dict:
         model="llama-3.3-70b-versatile", # You can choose a different Groq model if preferred
         response_format={"type": "json_object"}, # Request JSON output
         temperature=0.7,
-        max_tokens=2048, # Adjust based on expected question length and number
+        max_tokens=4096, # Adjust based on expected question length and number
     )
 
     try:
         # The AI's response will be a string containing JSON
         quiz_data = json.loads(chat_completion.choices[0].message.content)
         # Assuming the AI returns a list of questions directly
-        return {"questions": quiz_data}
+        if isinstance(quiz_data, dict) and "questions" in quiz_data and isinstance(quiz_data["questions"], list):
+            print(f"DEBUG: Groq API generated {len(quiz_data["questions"])} questions in question_generator.py")
+            return quiz_data
+        elif isinstance(quiz_data, list):
+            print(f"DEBUG: Groq API generated {len(quiz_data)} questions in question_generator.py (direct list return).")
+            return {"questions": quiz_data}
+        else:
+            print(f"WARNING: Unexpected quiz_data format from Groq API in question_generator.py: {type(quiz_data)}")
+            return {"questions": []}
     except json.JSONDecodeError as e:
         print(f"Failed to decode JSON from Groq API response: {e}")
         print(f"Raw AI response: {chat_completion.choices[0].message.content}")
