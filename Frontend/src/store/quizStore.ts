@@ -87,7 +87,9 @@ export const useQuizStore = create<QuizState>()(
       stopTimer: () => set({ isTimerRunning: false }),
       updateTimer: (seconds) => set({ timeRemaining: seconds }),
       
-      submitQuiz: () => set({ isSubmitted: true, isTimerRunning: false }),
+      submitQuiz: () => {
+        set({ isSubmitted: true, isTimerRunning: false });
+      },
       
       resetQuiz: () => set({
         session: null,
@@ -113,7 +115,8 @@ export const useQuizStore = create<QuizState>()(
       },
       
       isQuestionAnswered: (questionId) => {
-        return get().answers.some(a => a.questionId === questionId && a.answers.length > 0);
+        const isAnswered = get().answers.some(a => a.questionId === questionId && a.answers.length > 0);
+        return isAnswered;
       },
       
       isQuestionFlagged: (questionId) => {
