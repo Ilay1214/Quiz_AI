@@ -95,6 +95,12 @@ def generate_questions():
             if not questions_list:
                 raise RuntimeError("Groq API generated no questions, or the output format was unexpected/empty.")
 
+            print(f"DEBUG: Final questions_list before session creation: {questions_list}") # Added debug print
+
+            # --- NEW LOGIC: Validate number of generated questions ---
+            if len(questions_list) < num_questions:
+                print(f"WARNING: Groq API generated {len(questions_list)} questions, but {num_questions} were requested for job {job_id}.")
+            
             # We need to construct a full QuizSession object that matches frontend's api.ts
             quiz_session = {
                 "id": job_id, # Use job_id as session_id for simplicity

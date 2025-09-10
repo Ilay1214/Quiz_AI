@@ -7,20 +7,20 @@ def generate_quiz_questions(text: str, num_questions: int, mode: str) -> dict:
     """
     Generates quiz questions using the Groq API based on the provided text.
     """
-    # Initialize Groq client
+    # start groq connection here and connect to the groq api
     groq_api_key = os.getenv("GROQ_API_KEY")
     if not groq_api_key:
         raise ValueError("GROQ_API_KEY environment variable not set.")
     
     client = Groq(api_key=groq_api_key)
 
-    # Construct the prompt
+    # build promps as variables here
     system_message = f"""
     You are an AI assistant specialized in creating engaging and informative quiz questions from provided text.
-    Your task is to generate exactly {num_questions} multiple-choice quiz questions based on the following text.
+    Your task is to generate **exactly {num_questions}** multiple-choice quiz questions based on the following text.
     The quiz should be in '{mode}' mode.
 
-    **Crucially, detect the language of the provided text and generate all questions, options, correct answers, and explanations in that same language.**
+    Crucially, detect the language of the provided text and generate all questions, options, correct answers, and explanations in that same language.
 
     All questions must be multiple-choice. There are two types of multiple-choice questions:
     1.  'single': These questions must have exactly 4 options, and only 1 of them should be the correct answer.
@@ -36,6 +36,7 @@ def generate_quiz_questions(text: str, num_questions: int, mode: str) -> dict:
     - An 'explanation' (string) for the correct answer(s).
 
     The output must be a JSON array of quiz question objects. Ensure the JSON is perfectly formed.
+    Ensure that you generate exactly {num_questions} questions as requested.
 
     Example JSON structure (Note: example is in English, but output should match input language):
     [
@@ -58,8 +59,8 @@ def generate_quiz_questions(text: str, num_questions: int, mode: str) -> dict:
     ]
     """
 
-    user_message = f"Generate {num_questions} quiz questions from the following text. Ensure the output language matches the input language:\n\n{text}"
-
+    user_message = f"Generate {num_questions} quiz questions from the following text. Ensure the output language matches the input language and generate exactly {num_questions} questions:\n\n{text}"
+    # call the groq api here and get the response
     chat_completion = client.chat.completions.create(
         messages=[
             {
