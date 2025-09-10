@@ -34,6 +34,21 @@ export interface JobStatusResponse {
   error?: string;
 }
 
+export interface AuthRequest {
+  mail: string;
+  password: string;
+}
+
+export interface RegisterResponse {
+  message: string;
+}
+
+export interface LoginResponse {
+  message: string;
+  user_id: number;
+  mail: string;
+}
+
 export const api = {
   async generateQuestions(data: GenerateQuestionsRequest): Promise<GenerateQuestionsResponse> {
     const formData = new FormData();
@@ -61,6 +76,40 @@ export const api = {
     
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return response.json();
+  },
+
+  async register(data: AuthRequest): Promise<RegisterResponse> {
+    const response = await fetch(`${API_BASE}/api/register`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+    }
+
+    return response.json();
+  },
+
+  async login(data: AuthRequest): Promise<LoginResponse> {
+    const response = await fetch(`${API_BASE}/api/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
     }
 
     return response.json();

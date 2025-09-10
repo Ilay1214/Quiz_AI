@@ -1,11 +1,20 @@
-from flask import Flask, request, jsonify 
+from flask import Flask, request, jsonify
 import os
-from flask_cors import CORS 
+import sys
+# Add the project root to the sys.path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from flask_cors import CORS
 from dotenv import load_dotenv
+from werkzeug.security import generate_password_hash, check_password_hash
+import mysql.connector
 
 # Import AI processing functions
 from ai_models.text_processor import extract_text_from_file
 from ai_models.question_generator import generate_quiz_questions
+
+# Import database setup
+from Database.database_setup import setup_database, DB_NAME, DB_HOST, DB_USER, DB_PASSWORD
 
 # Load environment variables from .env file
 load_dotenv()
@@ -20,6 +29,66 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # In-memory store for job statuses and results (replace with a proper database/cache in production)
 job_statuses = {}
+
+# Database connection helper
+def get_db_connection():
+    return mysql.connector.connect(
+        host=DB_HOST,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        database=DB_NAME
+    )
+
+@app.route('/api/register', methods=['POST'])
+def register_user():
+    data = request.get_json()
+    mail = data.get('mail')
+    password = data.get('password')
+
+    if not mail or not password:
+        return jsonify({"error": "Mail and password are required"}), 400
+
+    hashed_password = generate_password_hash(password)
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO users (mail, password) VALUES (%s, %s)", (mail, hashed_password))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return jsonify({"message": "User registered successfully"}), 201
+    except mysql.connector.Error as err:
+        if err.errno == 1062: # Duplicate entry for UNIQUE constraint
+            return jsonify({"error": "Mail already registered"}), 409
+        print(f"Error during registration: {err}")
+        return jsonify({"error": "Internal server error"}), 500
+
+@app.route('/api/login', methods=['POST'])
+def login_user():
+    data = request.get_json()
+    mail = data.get('mail')
+    password = data.get('password')
+
+    if not mail or not password:
+        return jsonify({"error": "Mail and password are required"}), 400
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True) # Return rows as dictionaries
+        cursor.execute("SELECT * FROM users WHERE mail = %s", (mail,))
+        user = cursor.fetchone()
+        cursor.close()
+        conn.close()
+
+        if user and check_password_hash(user['password'], password):
+            # In a real app, you'd generate a session token or JWT here
+            return jsonify({"message": "Login successful", "user_id": user['user_id'], "mail": user['mail']}), 200
+        else:
+            return jsonify({"error": "Invalid mail or password"}), 401
+    except mysql.connector.Error as err:
+        print(f"Error during login: {err}")
+        return jsonify({"error": "Internal server error"}), 500
 
 @app.route('/api/generate-questions', methods=['POST'])
 def generate_questions():
@@ -149,5 +218,6 @@ def get_job_status(job_id):
     return jsonify(response_data), 200
 
 if __name__ == '__main__':
+    setup_database()
     app.run(debug=True, port=8000)
 

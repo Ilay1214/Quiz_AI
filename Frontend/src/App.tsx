@@ -8,6 +8,8 @@ import Landing from "./pages/Landing";
 import Setup from "./pages/Setup";
 import Quiz from "./pages/Quiz";
 import Results from "./pages/Results";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +26,8 @@ const App = () => (
             <Route path="/setup" element={<Setup />} />
             <Route path="/quiz" element={<Quiz />} />
             <Route path="/results" element={<Results />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>

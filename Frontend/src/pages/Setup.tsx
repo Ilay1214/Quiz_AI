@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useDropzone } from "react-dropzone";
 import { useMutation } from "@tanstack/react-query";
@@ -10,13 +10,18 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
 import { useQuizStore } from "@/store/quizStore";
-import { Upload, FileText, Loader2, ArrowLeft } from "lucide-react";
+import { useAuthStore } from "@/store/authStore";
+import { Upload, FileText, Loader2 } from "lucide-react";
+import Header from "@/components/common/Header";
 
 const Setup = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
   const setSession = useQuizStore((state) => state.setSession);
+  const { currentUser, logout } = useAuthStore();
+
+  // Removed useEffect for redirecting unauthenticated users
 
   const [mode, setMode] = useState<'exam' | 'practice'>(
     location.state?.mode || 'exam'
@@ -142,16 +147,9 @@ const Setup = () => {
 
   return (
     <div className="min-h-screen bg-background py-8">
-      <div className="container mx-auto px-4 max-w-2xl">
-        <div className="mb-8">
-          <Button
-            variant="ghost"
-            onClick={() => navigate('/')}
-            className="mb-4"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Home
-          </Button>
+      <Header showBackButton={true} title="Quiz Setup" />
+      <div className="container mx-auto px-4 max-w-2xl relative">
+        <div className="mb-8 mt-8">
           <h1 className="text-3xl font-bold">Setup Your Quiz</h1>
           <p className="text-muted-foreground mt-2">
             Configure your quiz parameters and upload your study materials
