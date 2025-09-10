@@ -24,11 +24,15 @@ const Landing = () => {
       <div className="relative bg-gradient-to-br from-primary to-accent text-white">
         <div className="container mx-auto px-4 py-20">
           <div className="max-w-4xl mx-auto text-center">
-            <h1 className="text-5xl font-bold mb-6">
-              StudyQuiz AI
-            </h1>
+            {/* Replaced h1 with img for logo */}
+            <img
+              src="/logo.png"
+              alt="StudyQuiz AI Logo"
+              className="mx-auto h-64 w-64 mb-4" // Increased size here again
+            />
+            {/* Removed the h1 tag here */}
             <p className="text-xl mb-8 opacity-90">
-              Transform your study materials into personalized quizzes with AI. 
+              Transform your study materials into personalized quizzes with AI.
               Practice or take timed exams to test your knowledge.
             </p>
           </div>
@@ -45,7 +49,7 @@ const Landing = () => {
 
           <div className="grid md:grid-cols-2 gap-8">
             {/* Exam Mode */}
-            <Card className="relative hover:shadow-lg transition-shadow cursor-pointer group" 
+            <Card className="relative hover:shadow-lg transition-shadow cursor-pointer group"
                   onClick={() => handleModeSelect('exam')}>
               <CardHeader className="text-center pb-4">
                 <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:bg-primary/20 transition-colors">
