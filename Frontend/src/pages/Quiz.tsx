@@ -104,9 +104,12 @@ const Quiz = () => {
     }
   }, [currentQuestion, getAnswer]);
 
-  // Removed useEffect for redirecting unauthenticated users
-
-  // Removed useEffect for redirecting already submitted users
+  // Redirect if already submitted
+  useEffect(() => {
+    if (isSubmitted) {
+      navigate('/results');
+    }
+  }, [isSubmitted, navigate]);
 
   if (!session || !currentQuestion) {
     return (
@@ -171,6 +174,11 @@ const Quiz = () => {
   const handleSubmit = () => {
     stopTimer();
     submitQuiz();
+    toast({
+      title: "Quiz Submitted",
+      description: "Your exam has been submitted.",
+      variant: "success",
+    });
   };
 
   const handleExit = () => {
@@ -183,11 +191,19 @@ const Quiz = () => {
   const checkAnswer = () => {
     if (session.mode !== 'practice' || selectedAnswers.length === 0) return;
     
-    const correct = currentQuestion.correctAnswers.every(ca => 
-      selectedAnswers.includes(ca)
-    ) && selectedAnswers.every(sa => 
-      currentQuestion.correctAnswers.includes(sa)
-    );
+    let correct: boolean;
+
+    if (currentQuestion.type === 'text') {
+      // For text questions, compare the single user answer with the single correct answer
+      correct = selectedAnswers[0]?.toLowerCase() === currentQuestion.correctAnswers[0]?.toLowerCase();
+    } else {
+      // For single or multiple choice questions
+      correct = currentQuestion.correctAnswers.every(ca => 
+        selectedAnswers.includes(ca)
+      ) && selectedAnswers.every(sa => 
+        currentQuestion.correctAnswers.includes(sa)
+      );
+    }
     
     setCurrentFeedback({
       correct,

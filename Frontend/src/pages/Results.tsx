@@ -32,8 +32,18 @@ const Results = () => {
       const userAnswer = answers.find(a => a.questionId === question.id);
       const userAnswers = userAnswer?.answers || [];
       
-      const isCorrect = question.correctAnswers.length === userAnswers.length &&
-        question.correctAnswers.every(ca => userAnswers.includes(ca));
+      let isCorrect: boolean;
+
+      if (question.type === 'text') {
+        // For text questions, perform a case-insensitive, trimmed comparison
+        const userText = userAnswers[0]?.trim().toLowerCase() || '';
+        const correctText = question.correctAnswers[0]?.trim().toLowerCase() || '';
+        isCorrect = userText === correctText;
+      } else {
+        // For single or multiple choice questions
+        isCorrect = question.correctAnswers.length === userAnswers.length &&
+          question.correctAnswers.every(ca => userAnswers.includes(ca));
+      }
       
       if (isCorrect) correct++;
       
@@ -232,11 +242,17 @@ const Results = () => {
                           <span className="text-sm font-medium text-muted-foreground">Your answer:</span>
                           <div className="mt-1">
                             {result.userAnswers.length > 0 ? (
-                              result.userAnswers.map((answer, i) => (
-                                <Badge key={i} variant="outline" className="mr-2">
-                                  {answer}
-                                </Badge>
-                              ))
+                              result.question.type === 'text' ? (
+                                <div className="p-2 border rounded-md bg-muted/20 text-sm whitespace-pre-wrap">
+                                  {result.userAnswers[0]}
+                                </div>
+                              ) : (
+                                result.userAnswers.map((answer, i) => (
+                                  <Badge key={i} variant="outline" className="mr-2">
+                                    {answer}
+                                  </Badge>
+                                ))
+                              )
                             ) : (
                               <span className="text-muted-foreground italic">No answer provided</span>
                             )}
@@ -247,11 +263,17 @@ const Results = () => {
                           <div>
                             <span className="text-sm font-medium text-muted-foreground">Correct answer:</span>
                             <div className="mt-1">
-                              {result.correctAnswers.map((answer, i) => (
-                                <Badge key={i} variant="default" className="mr-2">
-                                  {answer}
-                                </Badge>
-                              ))}
+                              {result.question.type === 'text' ? (
+                                <div className="p-2 border rounded-md bg-success/10 text-success text-sm whitespace-pre-wrap">
+                                  {result.correctAnswers[0]}
+                                </div>
+                              ) : (
+                                result.correctAnswers.map((answer, i) => (
+                                  <Badge key={i} variant="default" className="mr-2">
+                                    {answer}
+                                  </Badge>
+                                ))
+                              )}
                             </div>
                           </div>
                         )}
