@@ -2,8 +2,11 @@ import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Clock, Zap, BookOpen, Target, LogOut } from "lucide-react";
+import { Clock, Zap, BookOpen, Target, LogOut, Loader2 } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
+import { useQuery } from "@tanstack/react-query";
+import { api, SavedQuiz } from "@/lib/api";
+import { format } from "date-fns";
 // Removed Header import
 import {
   AlertDialog,
@@ -21,6 +24,14 @@ const Landing = () => {
   const navigate = useNavigate();
   const [isMounted, setIsMounted] = useState(false);
   const { currentUser, logout } = useAuthStore();
+
+  const { data: savedQuizzes, isLoading: isLoadingQuizzes, error: quizzesError } = useQuery<
+    SavedQuiz[]
+  >({
+    queryKey: ['userQuizzes', currentUser?.user_id],
+    queryFn: () => api.fetchUserQuizzes(currentUser!.user_id),
+    enabled: !!currentUser?.user_id, // Only run query if user_id exists
+  });
 
   useEffect(() => {
     setIsMounted(true);
@@ -81,11 +92,65 @@ const Landing = () => {
                 <Button size="lg" variant="ghost" onClick={() => navigate('/setup')}>Continue as Guest</Button>
               </div>
             ) : (
-              <p className="text-lg">Welcome, {currentUser.mail}!</p>
+              <div className="flex flex-col items-center">
+                <p className="text-lg mb-4">Welcome, {currentUser.mail}!</p>
+                <Button size="lg" onClick={() => navigate('/setup')}>Create New Quiz</Button>
+              </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* Saved Quizzes Section */}
+      {currentUser && ( // Only show saved quizzes if user is logged in
+        <div className="container mx-auto px-4 py-16">
+          <div className="max-w-4xl mx-auto">
+            <h2 className="text-3xl font-bold text-center mb-4">Your Saved Quizzes</h2>
+            <p className="text-muted-foreground text-center mb-12">
+              Continue a past quiz or review your results
+            </p>
+
+            {isLoadingQuizzes && <div className="text-center"><Loader2 className="w-8 h-8 animate-spin" /> Loading quizzes...</div>}
+            {quizzesError && <div className="text-center text-destructive">Error loading quizzes: {quizzesError.message}</div>}
+
+            {!isLoadingQuizzes && !quizzesError && savedQuizzes?.length === 0 && (
+              <p className="text-center text-muted-foreground">You haven't saved any quizzes yet. Create one above!</p>
+            )}
+
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {!isLoadingQuizzes && savedQuizzes?.map((quiz) => (
+                <Card key={quiz.quiz_id} className="hover:shadow-lg transition-shadow cursor-pointer">
+                  <CardHeader>
+                    <CardTitle className="text-xl">{quiz.title}</CardTitle>
+                    <CardDescription>
+                      {quiz.mode === 'exam' ? `Exam Mode - ${quiz.duration} mins` : 'Practice Mode'}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex flex-col gap-2">
+                    <div className="flex items-center text-sm text-muted-foreground">
+                      <BookOpen className="w-4 h-4 mr-2" />
+                      {quiz.quiz_data.questions.length} Questions
+                    </div>
+                    <div className="flex items-center text-sm text-muted-foreground">
+                      <Clock className="w-4 h-4 mr-2" />
+                      Created on {format(new Date(quiz.created_at), 'PP')}
+                    </div>
+                    <Button 
+                      className="mt-4"
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent card onClick from firing
+                        navigate('/quiz', { state: { quizSession: quiz.quiz_data } });
+                      }}
+                    >
+                      Start Quiz
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Mode Selection */}
       <div className="container mx-auto px-4 py-16">

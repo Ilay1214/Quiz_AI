@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +31,7 @@ import {
 
 const Quiz = () => {
   const navigate = useNavigate();
+  const location = useLocation(); // Get location object
   const { toast } = useToast();
   const { currentUser, logout } = useAuthStore();
   
@@ -53,6 +54,7 @@ const Quiz = () => {
     isQuestionFlagged,
     getProgress,
     resetQuiz,
+    setSession, // Added setSession to the destructuring
   } = useQuizStore();
 
   const [selectedAnswers, setSelectedAnswers] = useState<string[]>([]);
@@ -65,6 +67,13 @@ const Quiz = () => {
 
   const currentQuestion = getCurrentQuestion();
   const progress = getProgress();
+
+  // Initialize session from location state if available (for saved quizzes)
+  useEffect(() => {
+    if (!session && location.state?.quizSession) {
+      setSession(location.state.quizSession);
+    }
+  }, [session, location.state?.quizSession, setSession]);
 
   // Timer effect
   useEffect(() => {
