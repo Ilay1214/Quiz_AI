@@ -47,6 +47,22 @@ def setup_database():
         cursor.execute(create_table_query)
         print("Table 'users' checked/created successfully.")
 
+        # Create quizzes table if it doesn't exist
+        create_quizzes_table_query = """
+        CREATE TABLE IF NOT EXISTS quizzes (
+            quiz_id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            title VARCHAR(255) NOT NULL,
+            quiz_data JSON NOT NULL,
+            mode VARCHAR(50) NOT NULL,
+            duration INT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+        );
+        """
+        cursor.execute(create_quizzes_table_query)
+        print("Table 'quizzes' checked/created successfully.")
+
         cnx.commit()
         cursor.close()
         cnx.close()

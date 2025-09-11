@@ -19,11 +19,17 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const Landing = () => {
   const navigate = useNavigate();
   const [isMounted, setIsMounted] = useState(false);
   const { currentUser, logout } = useAuthStore();
+
+  const [showDurationDialog, setShowDurationDialog] = useState(false);
+  const [selectedQuizForExam, setSelectedQuizForExam] = useState<SavedQuiz | null>(null);
+  const [examDuration, setExamDuration] = useState(30);
 
   const { data: savedQuizzes, isLoading: isLoadingQuizzes, error: quizzesError } = useQuery<
     SavedQuiz[]
@@ -41,6 +47,33 @@ const Landing = () => {
     // Allow guests to proceed to setup
     if (isMounted) {
       navigate('/setup', { state: { mode } });
+    }
+  };
+
+  const handleStartPractice = (quiz: SavedQuiz) => {
+    navigate('/quiz', { state: { quizSession: { ...quiz.quiz_data, mode: 'practice', duration: undefined } } });
+  };
+
+  const handleStartExamClick = (quiz: SavedQuiz) => {
+    setSelectedQuizForExam(quiz);
+    setExamDuration(quiz.duration || 30); // Pre-fill with saved duration or default
+    setShowDurationDialog(true);
+  };
+
+  const handleStartExam = () => {
+    if (selectedQuizForExam) {
+      const durationInMinutes = Math.max(1, Math.min(180, examDuration)); // Ensure valid range
+      navigate('/quiz', { 
+        state: { 
+          quizSession: { 
+            ...selectedQuizForExam.quiz_data, 
+            mode: 'exam', 
+            duration: durationInMinutes
+          }
+        }
+      });
+      setShowDurationDialog(false);
+      setSelectedQuizForExam(null);
     }
   };
 
@@ -119,11 +152,11 @@ const Landing = () => {
 
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {!isLoadingQuizzes && savedQuizzes?.map((quiz) => (
-                <Card key={quiz.quiz_id} className="hover:shadow-lg transition-shadow cursor-pointer">
+                <Card key={quiz.quiz_id} className="hover:shadow-lg transition-shadow">
                   <CardHeader>
                     <CardTitle className="text-xl">{quiz.title}</CardTitle>
                     <CardDescription>
-                      {quiz.mode === 'exam' ? `Exam Mode - ${quiz.duration} mins` : 'Practice Mode'}
+                      {quiz.mode === 'exam' ? `Exam Mode - ${quiz.duration || 0} mins` : 'Practice Mode'}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="flex flex-col gap-2">
@@ -135,15 +168,27 @@ const Landing = () => {
                       <Clock className="w-4 h-4 mr-2" />
                       Created on {format(new Date(quiz.created_at), 'PP')}
                     </div>
-                    <Button 
-                      className="mt-4"
-                      onClick={(e) => {
-                        e.stopPropagation(); // Prevent card onClick from firing
-                        navigate('/quiz', { state: { quizSession: quiz.quiz_data } });
-                      }}
-                    >
-                      Start Quiz
-                    </Button>
+                    <div className="flex gap-2 mt-4">
+                      <Button 
+                        variant="outline"
+                        className="flex-1"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleStartPractice(quiz);
+                        }}
+                      >
+                        Practice Mode
+                      </Button>
+                      <Button 
+                        className="flex-1"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleStartExamClick(quiz);
+                        }}
+                      >
+                        Test Mode
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               ))}
@@ -151,6 +196,38 @@ const Landing = () => {
           </div>
         </div>
       )}
+
+      {/* Duration Selection Dialog for Exam Mode */}
+      <AlertDialog open={showDurationDialog} onOpenChange={setShowDurationDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Set Exam Duration</AlertDialogTitle>
+            <AlertDialogDescription>
+              Enter the duration for your exam (1-180 minutes).
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="bg-white p-4 rounded-lg shadow-lg"> {/* Changed from AlertDialogContent to a div */}
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="exam-duration">Duration (minutes)</Label>
+                <Input
+                  id="exam-duration"
+                  type="number"
+                  min="1"
+                  max="180"
+                  value={examDuration}
+                  onChange={(e) => setExamDuration(parseInt(e.target.value) || 1)}
+                  className="mt-1"
+                />
+              </div>
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowDurationDialog(false)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleStartExam}>Start Exam</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Mode Selection */}
       <div className="container mx-auto px-4 py-16">
