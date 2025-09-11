@@ -2,8 +2,11 @@ import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Clock, Zap, BookOpen, Target, LogOut } from "lucide-react";
+import { Clock, Zap, BookOpen, Target, LogOut, Loader2 } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
+import { useQuery } from "@tanstack/react-query";
+import { api, SavedQuiz } from "@/lib/api";
+import { format } from "date-fns";
 // Removed Header import
 import {
   AlertDialog,
@@ -16,11 +19,25 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const Landing = () => {
   const navigate = useNavigate();
   const [isMounted, setIsMounted] = useState(false);
   const { currentUser, logout } = useAuthStore();
+
+  const [showDurationDialog, setShowDurationDialog] = useState(false);
+  const [selectedQuizForExam, setSelectedQuizForExam] = useState<SavedQuiz | null>(null);
+  const [examDuration, setExamDuration] = useState(30);
+
+  const { data: savedQuizzes, isLoading: isLoadingQuizzes, error: quizzesError } = useQuery<
+    SavedQuiz[]
+  >({
+    queryKey: ['userQuizzes', currentUser?.user_id],
+    queryFn: () => api.fetchUserQuizzes(currentUser!.user_id),
+    enabled: !!currentUser?.user_id, // Only run query if user_id exists
+  });
 
   useEffect(() => {
     setIsMounted(true);
@@ -30,6 +47,33 @@ const Landing = () => {
     // Allow guests to proceed to setup
     if (isMounted) {
       navigate('/setup', { state: { mode } });
+    }
+  };
+
+  const handleStartPractice = (quiz: SavedQuiz) => {
+    navigate('/quiz', { state: { quizSession: { ...quiz.quiz_data, mode: 'practice', duration: undefined } } });
+  };
+
+  const handleStartExamClick = (quiz: SavedQuiz) => {
+    setSelectedQuizForExam(quiz);
+    setExamDuration(quiz.duration || 30); // Pre-fill with saved duration or default
+    setShowDurationDialog(true);
+  };
+
+  const handleStartExam = () => {
+    if (selectedQuizForExam) {
+      const durationInMinutes = Math.max(1, Math.min(180, examDuration)); // Ensure valid range
+      navigate('/quiz', { 
+        state: { 
+          quizSession: { 
+            ...selectedQuizForExam.quiz_data, 
+            mode: 'exam', 
+            duration: durationInMinutes
+          }
+        }
+      });
+      setShowDurationDialog(false);
+      setSelectedQuizForExam(null);
     }
   };
 
@@ -81,11 +125,109 @@ const Landing = () => {
                 <Button size="lg" variant="ghost" onClick={() => navigate('/setup')}>Continue as Guest</Button>
               </div>
             ) : (
-              <p className="text-lg">Welcome, {currentUser.mail}!</p>
+              <div className="flex flex-col items-center">
+                <p className="text-lg mb-4">Welcome, {currentUser.mail}!</p>
+                <Button size="lg" onClick={() => navigate('/setup')}>Create New Quiz</Button>
+              </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* Saved Quizzes Section */}
+      {currentUser && ( // Only show saved quizzes if user is logged in
+        <div className="container mx-auto px-4 py-16">
+          <div className="max-w-4xl mx-auto">
+            <h2 className="text-3xl font-bold text-center mb-4">Your Saved Quizzes</h2>
+            <p className="text-muted-foreground text-center mb-12">
+              Continue a past quiz or review your results
+            </p>
+
+            {isLoadingQuizzes && <div className="text-center"><Loader2 className="w-8 h-8 animate-spin" /> Loading quizzes...</div>}
+            {quizzesError && <div className="text-center text-destructive">Error loading quizzes: {quizzesError.message}</div>}
+
+            {!isLoadingQuizzes && !quizzesError && savedQuizzes?.length === 0 && (
+              <p className="text-center text-muted-foreground">You haven't saved any quizzes yet. Create one above!</p>
+            )}
+
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {!isLoadingQuizzes && savedQuizzes?.map((quiz) => (
+                <Card key={quiz.quiz_id} className="hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <CardTitle className="text-xl">{quiz.title}</CardTitle>
+                    <CardDescription>
+                      {quiz.mode === 'exam' ? `Exam Mode - ${quiz.duration || 0} mins` : 'Practice Mode'}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex flex-col gap-2">
+                    <div className="flex items-center text-sm text-muted-foreground">
+                      <BookOpen className="w-4 h-4 mr-2" />
+                      {quiz.quiz_data.questions.length} Questions
+                    </div>
+                    <div className="flex items-center text-sm text-muted-foreground">
+                      <Clock className="w-4 h-4 mr-2" />
+                      Created on {format(new Date(quiz.created_at), 'PP')}
+                    </div>
+                    <div className="flex gap-2 mt-4">
+                      <Button 
+                        variant="outline"
+                        className="flex-1"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleStartPractice(quiz);
+                        }}
+                      >
+                        Practice Mode
+                      </Button>
+                      <Button 
+                        className="flex-1"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleStartExamClick(quiz);
+                        }}
+                      >
+                        Test Mode
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Duration Selection Dialog for Exam Mode */}
+      <AlertDialog open={showDurationDialog} onOpenChange={setShowDurationDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Set Exam Duration</AlertDialogTitle>
+            <AlertDialogDescription>
+              Enter the duration for your exam (1-180 minutes).
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="bg-white p-4 rounded-lg shadow-lg"> {/* Changed from AlertDialogContent to a div */}
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="exam-duration">Duration (minutes)</Label>
+                <Input
+                  id="exam-duration"
+                  type="number"
+                  min="1"
+                  max="180"
+                  value={examDuration}
+                  onChange={(e) => setExamDuration(parseInt(e.target.value) || 1)}
+                  className="mt-1"
+                />
+              </div>
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowDurationDialog(false)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleStartExam}>Start Exam</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Mode Selection */}
       <div className="container mx-auto px-4 py-16">

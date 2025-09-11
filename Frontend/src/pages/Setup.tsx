@@ -30,6 +30,7 @@ const Setup = () => {
   const [numQuestions, setNumQuestions] = useState(10);
   const [duration, setDuration] = useState(30);
   const [jobId, setJobId] = useState<string | null>(null);
+  const [quizTitle, setQuizTitle] = useState(""); // New state for quiz title
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
@@ -128,11 +129,31 @@ const Setup = () => {
       return;
     }
 
+    if (!quizTitle.trim()) {
+      toast({
+        title: "Quiz Title Required",
+        description: "Please enter a title for your quiz.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!currentUser || !currentUser.user_id) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to save and generate quizzes.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     generateMutation.mutate({
       file,
       numQuestions,
       duration: mode === 'exam' ? duration : undefined,
       mode,
+      userId: currentUser.user_id, // Pass user ID
+      quizTitle, // Pass quiz title
     });
   };
 
@@ -141,6 +162,7 @@ const Setup = () => {
     setNumQuestions(10);
     setDuration(30);
     setJobId(null);
+    setQuizTitle(""); // Reset quiz title
   };
 
   const isLoading = generateMutation.isPending || jobId !== null;
@@ -248,6 +270,18 @@ const Setup = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="quiz-title">Quiz Title</Label>
+                <Input
+                  id="quiz-title"
+                  type="text"
+                  placeholder="e.g., Biology Chapter 5 Review"
+                  value={quizTitle}
+                  onChange={(e) => setQuizTitle(e.target.value)}
+                  className="mt-1"
+                  required
+                />
+              </div>
               <div>
                 <Label htmlFor="num-questions">Number of Questions (1-65)</Label>
                 <Input

@@ -8,15 +8,16 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 from werkzeug.security import generate_password_hash, check_password_hash
 import mysql.connector
+import json # Added import for json
 
-# Import AI processing functions
+# import AI processing functions (from ai_models folder)
 from ai_models.text_processor import extract_text_from_file
 from ai_models.question_generator import generate_quiz_questions
 
-# Import database setup
+# import database setup
 from Database.database_setup import setup_database, DB_NAME, DB_HOST, DB_USER, DB_PASSWORD
 
-# Load environment variables from .env file
+# load environment variables
 load_dotenv()
 
 app = Flask(__name__)
@@ -108,7 +109,15 @@ def generate_questions():
         num_questions = request.form.get('numQuestions', type=int)
         duration = request.form.get('duration', type=int)
         mode = request.form.get('mode')
-        print(f"DEBUG: Quiz parameters - numQuestions: {num_questions}, duration: {duration}, mode: {mode}") # Added debug print
+        user_id = request.form.get('userId', type=int) # Get user_id from form data
+        quiz_title = request.form.get('quizTitle') # Get quizTitle from form data
+
+        if not user_id:
+            return jsonify({"error": "User ID is required to save a quiz."}), 400
+        if not quiz_title:
+            return jsonify({"error": "Quiz title is required."}), 400
+
+        print(f"DEBUG: Quiz parameters - numQuestions: {num_questions}, duration: {duration}, mode: {mode}, userId: {user_id}, quizTitle: {quiz_title}") # Added debug print
 
         job_id = f"job_{os.urandom(16).hex()}"
         
@@ -182,6 +191,35 @@ def generate_questions():
             job_statuses[job_id]["status"] = "completed"
             job_statuses[job_id]["session"] = quiz_session
             print(f"DEBUG: Job {job_id} completed successfully.") # Added debug print
+
+            # Save the generated quiz to the database
+            try:
+                conn = get_db_connection()
+                cursor = conn.cursor()
+                insert_query = """
+                INSERT INTO quizzes (user_id, title, quiz_data, mode, duration)
+                VALUES (%s, %s, %s, %s, %s)
+                """
+                cursor.execute(insert_query, (
+                    user_id,
+                    quiz_title,
+                    json.dumps(quiz_session), # Store quiz_session as JSON string
+                    mode,
+                    duration if mode == 'exam' else None
+                ))
+                conn.commit()
+                quiz_id = cursor.lastrowid
+                cursor.close()
+                conn.close()
+                print(f"DEBUG: Quiz saved to database with ID: {quiz_id}")
+                job_statuses[job_id]["quiz_id"] = quiz_id # Store quiz_id in job_statuses
+            except mysql.connector.Error as db_err:
+                print(f"ERROR: Database error while saving quiz: {db_err}")
+                job_statuses[job_id]["status"] = "failed"
+                job_statuses[job_id]["error"] = "Failed to save quiz to database."
+                # Re-raise to ensure the outer exception handler catches it
+                raise RuntimeError("Failed to save quiz to database.") from db_err
+
         except (ValueError, RuntimeError) as e: # Catch specific errors for better handling
             job_statuses[job_id]["status"] = "failed"
             job_statuses[job_id]["error"] = str(e)
@@ -212,10 +250,55 @@ def get_job_status(job_id):
 
     if job_info["status"] == "completed":
         response_data["session"] = job_info["session"]
+        if "quiz_id" in job_info: # Include quiz_id if available
+            response_data["quizId"] = job_info["quiz_id"]
     elif job_info["status"] == "failed":
         response_data["error"] = job_info["error"]
     
     return jsonify(response_data), 200
+
+@app.route('/api/quizzes/user/<int:user_id>', methods=['GET'])
+def get_user_quizzes(user_id):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT quiz_id, title, mode, duration, created_at, quiz_data FROM quizzes WHERE user_id = %s", (user_id,))
+        quizzes = cursor.fetchall()
+        cursor.close()
+        conn.close()
+
+        if not quizzes:
+            return jsonify({"message": "No quizzes found for this user"}), 404
+
+        # Parse quiz_data JSON for each quiz
+        for quiz in quizzes:
+            quiz['quiz_data'] = json.loads(quiz['quiz_data'])
+        
+        return jsonify(quizzes), 200
+    except mysql.connector.Error as err:
+        print(f"Error fetching user quizzes: {err}")
+        return jsonify({"error": "Internal server error"}), 500
+
+@app.route('/api/quizzes/<int:quiz_id>', methods=['GET'])
+def get_quiz_by_id(quiz_id):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT quiz_id, title, mode, duration, created_at, quiz_data FROM quizzes WHERE quiz_id = %s", (quiz_id,))
+        quiz = cursor.fetchone()
+        cursor.close()
+        conn.close()
+
+        if not quiz:
+            return jsonify({"error": "Quiz not found"}), 404
+
+        # Parse quiz_data JSON
+        quiz['quiz_data'] = json.loads(quiz['quiz_data'])
+        
+        return jsonify(quiz), 200
+    except mysql.connector.Error as err:
+        print(f"Error fetching quiz by ID: {err}")
+        return jsonify({"error": "Internal server error"}), 500
 
 if __name__ == '__main__':
     setup_database()
