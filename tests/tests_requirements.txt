@@ -1,0 +1,9 @@
+pytest 
+pytest-cov
+pytest-flask
+httpx
+faker
+requests
+mysql-connector-python
+python-dotenv
+

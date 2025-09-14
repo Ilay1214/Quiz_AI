@@ -299,6 +299,18 @@ def get_quiz_by_id(quiz_id):
     except mysql.connector.Error as err:
         print(f"Error fetching quiz by ID: {err}")
         return jsonify({"error": "Internal server error"}), 500
+    
+#############
+### tests ###
+#############
+
+
+@app.route("/api/health")
+def health_check():
+    return jsonify({"status": "ok"}), 200
+
+
+
 
 if __name__ == '__main__':
     setup_database()
