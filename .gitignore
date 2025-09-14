@@ -4,3 +4,7 @@ Backend/uploads/*
 Backend/__pycache__/
 Backend/.env
 Database/__pycache__/
+Backend/ai_models/__pycache__/*
+tests/__pycache__/
+tests/pytest_cache/*
+uploads/*
