@@ -1,0 +1,30 @@
+name: Testing
+
+on: [pull_request]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v4
+
+      - name: create .env file
+        run: |
+          echo "MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}" > .env
+          echo "MYSQL_HOST=${MYSQL_HOST}" >> .env
+          echo "MYSQL_USER=${MYSQL_USER}" >> .env
+          echo "MYSQL_PASSWORD=${MYSQL_PASSWORD}" >> .env
+          echo "GROQ_API_KEY=${GROQ_API_KEY}" >> .env
+      
+      - name: run the app for testing
+        run: docker compose -f test_docker-compose.yaml up --build
+
+      - name: wait for app
+        run: sleep 30
+       
+      - name: run the tests
+        run: docker compose -f test_docker-compose.yaml exec -T backend_test python run_tests.py
+
+      - name: clear the app
+        if: always()
+        run: docker compose -f test_docker-compose.yaml down
