@@ -1,0 +1,9 @@
+Backend/__pycache__
+Backend/ai_models/__pycache__
+Backend/Database/__pycache__
+Backend/uploads
+Backend/venv
+Backend/.env   
+Backend/Dockerfile
+Backend/.dockerignore
+tests/__pycache__
