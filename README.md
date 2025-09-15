@@ -308,8 +308,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-For support, email support@quizai.com or create an issue in this repository.
+For support create an issue in this repository.
 
 ---
 
-**Made with ❤️ by [Your Name]**
+**Made with ❤️ by ilay**
