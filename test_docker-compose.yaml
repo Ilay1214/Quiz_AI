@@ -1,19 +1,15 @@
 version: '3.8'
 
 services:
-  database: 
+  mysql:
     image: mysql:8.0
     command: ["--default-authentication-plugin=mysql_native_password"]
-    environment:
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
-      - MYSQL_HOST=${MYSQL_HOST}
-      - MYSQL_DATABASE=${MYSQL_DATABASE:-quiz_ai}
-      - MYSQL_USER=${MYSQL_USER}
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    env_file:
+      - ./Backend/.env
     volumes:
-      - mysql_data:/var/lib/mysql 
+      - mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "${MYSQL_USER}", "-p${MYSQL_ROOT_PASSWORD}"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$MYSQL_ROOT_PASSWORD"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -21,20 +17,20 @@ services:
       - quiz_ai_network_test
 
   backend_test:
-    build: 
+    build:
+      context: .
       dockerfile: Dockerfile.tests
     depends_on:
-      - database
+      - mysql
     networks:
       - quiz_ai_network_test
-    environment:
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
-      - MYSQL_HOST=${MYSQL_HOST}
-      - MYSQL_USER=${MYSQL_USER}
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    env_file:
+      - ./Backend/.env
     ports:
       - "8000:8000"
-    
+    tty: true
+    stdin_open: true
+
   frontend_test:
     build: ./Frontend
     ports:
@@ -48,3 +44,5 @@ networks:
   quiz_ai_network_test:
     driver: bridge
 
+volumes:
+  mysql_data:
