@@ -1,4 +1,3 @@
-
 import mysql.connector
 import os
 from dotenv import load_dotenv
@@ -6,8 +5,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 DB_HOST = os.getenv("MYSQL_HOST")
-DB_USER = os.getenv("MYSQL_USER")
-DB_PASSWORD = os.getenv("MYSQL_PASSWORD")
+# Use root user with MYSQL_ROOT_PASSWORD
+DB_USER = "root"
+DB_PASSWORD = os.getenv("MYSQL_ROOT_PASSWORD")
 DB_NAME = "users"
 
 def setup_database():
