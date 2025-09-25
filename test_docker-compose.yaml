@@ -21,7 +21,8 @@ services:
       context: .
       dockerfile: Dockerfile.tests
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
     networks:
       - quiz_ai_network_test
     env_file:
