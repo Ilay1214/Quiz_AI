@@ -1,6 +1,7 @@
 name: Testing
 
 on: [pull_request]
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -8,24 +9,41 @@ jobs:
       - name: checkout repository
         uses: actions/checkout@v4
 
-      - name: create .env file
+      - name: create Backend/.env file for containers
         run: |
-          echo "MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}" > .env
-          echo "MYSQL_HOST=${MYSQL_HOST}" >> .env
-          echo "MYSQL_USER=${MYSQL_USER}" >> .env
-          echo "MYSQL_PASSWORD=${MYSQL_PASSWORD}" >> .env
-          echo "GROQ_API_KEY=${GROQ_API_KEY}" >> .env
-      
-      - name: run the app for testing
-        run: docker compose -f test_docker-compose.yaml up --build         
+          mkdir -p Backend
+          {
+            echo "MYSQL_HOST=mysql"
+            # Use only root user; tests default to root if MYSQL_USER is absent
+            echo "MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}"
+            # Make tests and app use the same password by mapping MYSQL_PASSWORD to the root password
+            echo "MYSQL_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}"
+            echo "MYSQL_DATABASE=users"
+            echo "GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}"
+          } > Backend/.env
 
-      - name: wait for app
-        run: sleep 30
-       
+      - name: run the app for testing (detached)
+        run: docker compose -f test_docker-compose.yaml up -d --build
+      - name: wait for backend health
+        run: |
+          for i in {1..60}; do
+            if curl -sSf http://localhost:8000/api/health > /dev/null; then
+              echo "Backend is healthy"
+              exit 0
+            fi
+            echo "Waiting for backend to become healthy ($i/60)..."
+            sleep 2
+          done
+          echo "Backend did not become healthy in time"
+          docker compose -f test_docker-compose.yaml ps
+          docker compose -f test_docker-compose.yaml logs --tail=200
+          exit 1
+
       - name: run the tests
-        run: docker compose -f test_docker-compose.yaml exec backend_test python -u tests/run_tests.py
+        run: docker compose -f test_docker-compose.yaml exec -T backend_test python -u tests/run_tests.py
+
       - name: clear the app
         if: always()
         run: |
-          docker compose -f test_docker-compose.yaml down
+          docker compose -f test_docker-compose.yaml down -v
           docker container prune -f
