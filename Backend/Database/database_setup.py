@@ -4,20 +4,43 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DB_HOST = os.getenv("MYSQL_HOST")
-# Use root user with MYSQL_ROOT_PASSWORD
-DB_USER = "root"
-DB_PASSWORD = os.getenv("MYSQL_ROOT_PASSWORD")
-DB_NAME = "users"
+# Provider-agnostic database configuration
+DB_HOST = os.getenv("MYSQL_HOST", "localhost")
+DB_PORT = int(os.getenv("MYSQL_PORT", "3306"))
+DB_USER = os.getenv("MYSQL_USER", "root")
+DB_PASSWORD = os.getenv("MYSQL_PASSWORD")
+DB_NAME = os.getenv("MYSQL_DATABASE", "users")
+
+# SSL Configuration for cloud providers (optional)
+DB_SSL_CA = os.getenv("MYSQL_SSL_CA")  # Path to CA certificate
+DB_SSL_REQUIRED = os.getenv("MYSQL_SSL_REQUIRED", "false").lower() == "true"
+
+def get_connection_config():
+    """Get database connection configuration with optional SSL support"""
+    config = {
+        "host": DB_HOST,
+        "port": DB_PORT,
+        "user": DB_USER,
+        "password": DB_PASSWORD,
+        "autocommit": False,
+        "raise_on_warnings": True
+    }
+    
+    # Add SSL configuration if required
+    if DB_SSL_REQUIRED and DB_SSL_CA:
+        config["ssl_ca"] = DB_SSL_CA
+        config["ssl_verify_cert"] = True
+        config["ssl_verify_identity"] = True
+    elif DB_SSL_REQUIRED:
+        # Use SSL without certificate verification (less secure)
+        config["ssl_disabled"] = False
+    
+    return config
 
 def setup_database():
     try:
         # Connect to MySQL server without specifying a database
-        cnx = mysql.connector.connect(
-            host=DB_HOST,
-            user=DB_USER,
-            password=DB_PASSWORD
-        )
+        cnx = mysql.connector.connect(**get_connection_config())
         cursor = cnx.cursor()
 
         # Create database if it doesn't exist
@@ -29,9 +52,7 @@ def setup_database():
 
         # Reconnect to the newly created/existing database
         cnx = mysql.connector.connect(
-            host=DB_HOST,
-            user=DB_USER,
-            password=DB_PASSWORD,
+            **get_connection_config(),
             database=DB_NAME
         )
         cursor = cnx.cursor()
