@@ -5,9 +5,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.tests
-    depends_on:
-      mysql:
-        condition: service_healthy
     networks:
       - quiz_ai_network_test
     env_file:
@@ -21,6 +18,8 @@ services:
     build: ./Frontend
     ports:
       - "3000:80"
+    depends_on:
+      - backend_test
     networks:
       - quiz_ai_network_test
 
