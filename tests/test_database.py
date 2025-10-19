@@ -7,11 +7,23 @@ Uses the same database as the backend application (no separate test database).
 import mysql.connector
 import os
 import sys
+from dotenv import load_dotenv
+
+# Load environment variables from Backend/.env BEFORE importing database_setup
+# This ensures the DB_* variables are set when database_setup.py runs
+backend_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'Backend')
+env_file = os.path.join(backend_dir, '.env')
+if os.path.exists(env_file):
+    load_dotenv(env_file)
+    print(f"Loaded environment from: {env_file}")
+else:
+    print(f"WARNING: .env file not found at {env_file}")
 
 # Add Backend to path to import database_setup
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'Backend'))
+sys.path.insert(0, backend_dir)
 
 # Import the EXACT same database configuration from the backend
+# These should now have the actual values from .env
 from Database.database_setup import (
     DB_HOST,
     DB_PORT, 
@@ -20,6 +32,9 @@ from Database.database_setup import (
     DB_NAME,
     get_db_config
 )
+
+# Debug: Print actual values (without password)
+print(f"Database config loaded - Host: {DB_HOST}, Port: {DB_PORT}, User: {DB_USER}, DB: {DB_NAME}")
 
 # Test run marker for safe cleanup - only delete test-created data
 TEST_RUN_ID = os.getenv("TEST_RUN_ID", "local")
@@ -36,7 +51,16 @@ class TestDatabaseManager:
         self.user = DB_USER
         self.password = DB_PASSWORD
         self.database = DB_NAME  # Same database the app uses
-        print(f"Test database manager using: {self.database} at {self.host}:{self.port}")
+        
+        # Validate that we have actual values, not None
+        if not self.host or not self.password:
+            raise ValueError(
+                f"Database configuration incomplete! "
+                f"Host='{self.host}', Port={self.port}, User='{self.user}', DB='{self.database}'. "
+                f"Check that Backend/.env exists and contains MYSQL_HOST, MYSQL_PASSWORD, etc."
+            )
+        
+        print(f"Test database manager configured for: {self.database} at {self.host}:{self.port}")
 
     def get_connection(self):
         """Get a connection to the database using backend's config."""
@@ -50,7 +74,7 @@ class TestDatabaseManager:
         Tables should already exist from the backend's setup_database().
         """
         try:
-            print(f"ℹ️  Using existing database '{self.database}' for tests.")
+            print(f"ℹ️  Connecting to database '{self.database}' at {self.host}:{self.port}")
             print(f"ℹ️  Test users will have email prefix: '{TEST_EMAIL_PREFIX}'")
             
             # Just verify we can connect and tables exist
