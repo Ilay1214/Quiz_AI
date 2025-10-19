@@ -1,21 +1,6 @@
 version: '3.8'
 
 services:
-  mysql:
-    image: mysql:8.0
-    command: ["--default-authentication-plugin=mysql_native_password"]
-    env_file:
-      - ./Backend/.env
-    volumes:
-      - mysql_data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$MYSQL_ROOT_PASSWORD"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-    networks:
-      - quiz_ai_network_test
-
   backend_test:
     build:
       context: .
@@ -36,8 +21,6 @@ services:
     build: ./Frontend
     ports:
       - "3000:80"
-    depends_on:
-      - backend_test
     networks:
       - quiz_ai_network_test
 
