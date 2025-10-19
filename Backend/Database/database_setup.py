@@ -2,6 +2,7 @@ import mysql.connector
 import os
 import ssl
 from dotenv import load_dotenv
+from urllib.parse import urlparse
 
 load_dotenv()
 
@@ -21,7 +22,6 @@ DB_SSL_CA = os.getenv("MYSQL_SSL_CA", DEFAULT_CA_PATH)
 db_available = False
 
 def get_db_config():
-    """Get database configuration with optional SSL settings."""
     config = {
         'host': DB_HOST,
         'port': DB_PORT,
@@ -30,13 +30,42 @@ def get_db_config():
         'autocommit': False,
         'connection_timeout': 10
     }
-    
-    # Add SSL configuration if CA certificate is provided
+
+    # Prefer full DSN if provided
+    dsn = os.getenv('MYSQL_URL') or os.getenv('DATABASE_URL')
+    host_val = dsn if dsn else config.get('host')
+
+    if host_val:
+        host_str = str(host_val).strip().strip('"').strip("'")
+        if '://' in host_str:
+            parsed = urlparse(host_str)
+            if parsed.hostname:
+                config['host'] = parsed.hostname
+            if parsed.port:
+                config['port'] = parsed.port
+            if parsed.username and not config.get('user'):
+                config['user'] = parsed.username
+            if parsed.password and not config.get('password'):
+                config['password'] = parsed.password
+            if parsed.path and len(parsed.path) > 1:
+                # do not override DB_NAME env if already set
+                config.setdefault('database', parsed.path.lstrip('/'))
+        else:
+            if ':' in host_str and not isinstance(config.get('port'), int):
+                try:
+                    h, p = host_str.rsplit(':', 1)
+                    config['host'] = h
+                    config['port'] = int(p)
+                except Exception:
+                    config['host'] = host_str
+            else:
+                config['host'] = host_str
+
     if DB_SSL_CA and os.path.exists(DB_SSL_CA):
         config['ssl_ca'] = DB_SSL_CA
         config['ssl_verify_cert'] = True
-        config['ssl_verify_identity'] = False  # Aiven uses custom domains
-    
+        config['ssl_verify_identity'] = False
+
     return config
 
 def setup_database():

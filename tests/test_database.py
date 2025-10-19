@@ -7,6 +7,8 @@ Uses the same database as the backend application (no separate test database).
 import mysql.connector
 import os
 import sys
+import socket
+from urllib.parse import urlparse
 from dotenv import load_dotenv
 
 # Load environment variables from Backend/.env BEFORE importing database_setup
@@ -15,9 +17,6 @@ backend_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 env_file = os.path.join(backend_dir, '.env')
 if os.path.exists(env_file):
     load_dotenv(env_file)
-    print(f"Loaded environment from: {env_file}")
-else:
-    print(f"WARNING: .env file not found at {env_file}")
 
 # Add Backend to path to import database_setup
 sys.path.insert(0, backend_dir)
@@ -62,10 +61,51 @@ class TestDatabaseManager:
         
         print(f"Test database manager configured for: {self.database} at {self.host}:{self.port}")
 
+    def _normalize_config(self, config: dict) -> dict:
+        """Normalize host/port if MYSQL_HOST was a URL or quoted.
+        Accepts formats like:
+        - mysqls://user:pass@host:port/db
+        - host:port
+        - "host"
+        """
+        host = config.get('host')
+        if not host:
+            return config
+
+        # Strip whitespace and surrounding quotes
+        host_str = str(host).strip().strip('"').strip("'")
+
+        # If full URL provided in host
+        if '://' in host_str:
+            parsed = urlparse(host_str)
+            if parsed.hostname:
+                config['host'] = parsed.hostname
+            if parsed.port:
+                config['port'] = parsed.port
+            if parsed.username and not config.get('user'):
+                config['user'] = parsed.username
+            if parsed.password and not config.get('password'):
+                config['password'] = parsed.password
+            if parsed.path and len(parsed.path) > 1 and not config.get('database'):
+                config['database'] = parsed.path.lstrip('/')
+        else:
+            # host:port form
+            if ':' in host_str and not isinstance(config.get('port'), int):
+                try:
+                    h, p = host_str.rsplit(':', 1)
+                    config['host'] = h
+                    config['port'] = int(p)
+                except Exception:
+                    config['host'] = host_str
+            else:
+                config['host'] = host_str
+        return config
+
     def get_connection(self):
         """Get a connection to the database using backend's config."""
         config = get_db_config()
         config['database'] = self.database
+        config = self._normalize_config(config)
         return mysql.connector.connect(**config)
         
     def create_test_database(self):
@@ -76,6 +116,14 @@ class TestDatabaseManager:
         try:
             print(f"ℹ️  Connecting to database '{self.database}' at {self.host}:{self.port}")
             print(f"ℹ️  Test users will have email prefix: '{TEST_EMAIL_PREFIX}'")
+            
+            # Preflight: verify DNS resolution so we can give actionable errors
+            try:
+                socket.getaddrinfo(self.host, self.port)
+            except Exception as e:
+                print(f"❌ DNS resolution failed for host '{self.host}': {e}")
+                print("Hints: ensure MYSQL_HOST is just the hostname (not a URL), and that the Aiven service is publicly accessible.")
+                return False
             
             # Just verify we can connect and tables exist
             cnx = self.get_connection()
