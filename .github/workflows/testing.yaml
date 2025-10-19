@@ -13,14 +13,16 @@ jobs:
         run: |
           mkdir -p Backend
           {
-            echo "MYSQL_HOST=mysql"
-            # Use only root user; tests default to root if MYSQL_USER is absent
-            echo "MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}"
-            # Make tests and app use the same password by mapping MYSQL_PASSWORD to the root password
-            echo "MYSQL_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}"
-            echo "MYSQL_DATABASE=users"
+            echo "MYSQL_HOST=${{ secrets.MYSQL_HOST }}"
+            echo "MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}"
+            echo "MYSQL_PORT=${{ secrets.MYSQL_PORT }}"
+            echo "MYSQL_USER=${{ secrets.MYSQL_USER }}"
+            echo "MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }}"
             echo "GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}"
           } > Backend/.env
+          
+          echo "${{ secrets.MYSQL_SSL_CA_B64 }}" | base64 -d > Backend/ca.pem
+          
 
       - name: run the app for testing (detached)
         run: docker compose -f test_docker-compose.yaml up -d --build

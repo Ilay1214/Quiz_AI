@@ -13,8 +13,10 @@ DB_PASSWORD = os.getenv("MYSQL_PASSWORD")  # More generic name
 DB_NAME = os.getenv("MYSQL_DATABASE", "users")  # Allow custom DB name
 
 # SSL configuration for cloud databases (e.g., Aiven)
-DB_SSL_CA = os.getenv("MYSQL_SSL_CA")  # Path to CA certificate file
-
+# in Backend/Database/database_setup.py
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # -> Backend/
+DEFAULT_CA_PATH = os.path.join(BASE_DIR, "ca.pem")
+DB_SSL_CA = os.getenv("MYSQL_SSL_CA", DEFAULT_CA_PATH)
 # Track if database is available
 db_available = False
 
