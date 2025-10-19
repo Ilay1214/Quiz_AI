@@ -10,7 +10,7 @@ import time
 import io
 import os
 from faker import Faker
-from test_database import test_db
+from test_database import test_db, TEST_EMAIL_PREFIX
 
 fake = Faker()
 
@@ -101,7 +101,7 @@ class QuizAITester:
     # Authentication Tests
     def test_user_registration_success(self):
         """Test successful user registration."""
-        test_email = fake.email()
+        test_email = TEST_EMAIL_PREFIX + fake.email()
         test_password = fake.password(length=12)
         
         payload = {
