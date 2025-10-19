@@ -134,7 +134,7 @@ class QuizAITester:
     
     def test_user_registration_duplicate_email(self):
         """Test registration with duplicate email."""
-        test_email = fake.email()
+        test_email = TEST_EMAIL_PREFIX + fake.email()
         test_password = fake.password(length=12)
         
         payload = {
@@ -174,7 +174,7 @@ class QuizAITester:
         """Test registration with missing fields."""
         test_cases = [
             {},  # Empty payload
-            {"mail": fake.email()},  # Missing password
+            {"mail": TEST_EMAIL_PREFIX + fake.email()},  # Missing password
             {"password": fake.password(length=12)},  # Missing email
         ]
         
@@ -204,7 +204,7 @@ class QuizAITester:
     
     def test_user_login_success(self):
         """Test successful user login."""
-        test_email = fake.email()
+        test_email = TEST_EMAIL_PREFIX + fake.email()
         test_password = fake.password(length=12)
         
         # Register user first
@@ -253,7 +253,7 @@ class QuizAITester:
     
     def test_user_login_invalid_credentials(self):
         """Test login with invalid credentials."""
-        test_email = fake.email()
+        test_email = TEST_EMAIL_PREFIX + fake.email()
         test_password = fake.password(length=12)
         
         # Register user first
@@ -296,7 +296,7 @@ class QuizAITester:
     
     def test_complete_auth_flow(self):
         """Test complete authentication flow."""
-        test_email = fake.email()
+        test_email = TEST_EMAIL_PREFIX + fake.email()
         test_password = fake.password(length=15)
         
         try:
@@ -351,7 +351,7 @@ class QuizAITester:
     # Quiz Generation Tests
     def create_test_user(self):
         """Helper method to create a test user for quiz tests."""
-        test_email = fake.email()
+        test_email = TEST_EMAIL_PREFIX + fake.email()
         test_password = fake.password(length=12)
         
         payload = {

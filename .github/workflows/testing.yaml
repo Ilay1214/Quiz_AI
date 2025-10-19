@@ -22,7 +22,6 @@ jobs:
           } > Backend/.env
           
           echo "${{ secrets.MYSQL_SSL_CA_B64 }}" | base64 -d > Backend/ca.pem
-          echo "MYSQL_ALLOW_CREATE_DB=false" >> Backend/.env
           echo "TEST_RUN_ID=${{ github.run_id }}" >> Backend/.env
           
 
