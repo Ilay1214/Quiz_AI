@@ -13,22 +13,40 @@ jobs:
         run: |
           mkdir -p Backend
           {
-            echo "MYSQL_HOST=mysql"
-            # Use only root user; tests default to root if MYSQL_USER is absent
-            echo "MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}"
-            # Make tests and app use the same password by mapping MYSQL_PASSWORD to the root password
-            echo "MYSQL_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}"
-            echo "MYSQL_DATABASE=users"
+            echo "MYSQL_HOST=${{ secrets.MYSQL_HOST }}"
+            echo "MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}"
+            echo "MYSQL_PORT=${{ secrets.MYSQL_PORT }}"
+            echo "MYSQL_USER=${{ secrets.MYSQL_USER }}"
+            echo "MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }}"
             echo "GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}"
+            echo "MYSQL_SSL_CA=/QuizAI/Backend/ca.pem"
           } > Backend/.env
+          
+          # Create ca.pem directory and decode the certificate
+          mkdir -p Backend/ca.pem
+          echo "${{ secrets.MYSQL_SSL_CA_B64 }}" | base64 -d > Backend/ca.pem/ca.pem
+          
+          # Debug: Show what we created (without exposing secrets)
+          echo "Created .env file with following vars:"
+          grep -E "^MYSQL_|^GROQ_" Backend/.env | cut -d= -f1
+          echo "CA certificate created at: Backend/ca.pem/ca.pem"
+          ls -la Backend/ca.pem/
 
       - name: run the app for testing (detached)
         run: docker compose -f test_docker-compose.yaml up -d --build
+
       - name: wait for backend health
         run: |
           for i in {1..60}; do
             if curl -sSf http://localhost:8000/api/health > /dev/null; then
               echo "Backend is healthy"
+              # Also check database connectivity
+              DB_STATUS=$(curl -s http://localhost:8000/api/db-status | jq -r '.status' 2>/dev/null || echo "error")
+              echo "Database status: $DB_STATUS"
+              if [ "$DB_STATUS" = "disconnected" ]; then
+                echo "Warning: Database is disconnected. Tests may fail."
+                docker compose -f test_docker-compose.yaml logs backend_test --tail=50
+              fi
               exit 0
             fi
             echo "Waiting for backend to become healthy ($i/60)..."
@@ -36,11 +54,14 @@ jobs:
           done
           echo "Backend did not become healthy in time"
           docker compose -f test_docker-compose.yaml ps
-          docker compose -f test_docker-compose.yaml logs --tail=200
+          docker compose -f test_docker-compose.yaml logs backend_test --tail=200
           exit 1
 
       - name: run the tests
-        run: docker compose -f test_docker-compose.yaml exec -T backend_test python -u tests/run_tests.py
+        run: |
+          # Set a unique test run ID to isolate test data
+          export TEST_RUN_ID="gh_${{ github.run_id }}"
+          docker compose -f test_docker-compose.yaml exec -T -e TEST_RUN_ID=$TEST_RUN_ID backend_test python -u tests/run_tests.py
 
       - name: clear the app
         if: always()
