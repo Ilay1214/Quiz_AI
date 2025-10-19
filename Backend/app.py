@@ -15,7 +15,10 @@ from ai_models.text_processor import extract_text_from_file
 from ai_models.question_generator import generate_quiz_questions
 
 # import database setup
-from Database.database_setup import setup_database, DB_NAME, DB_HOST, DB_USER, DB_PASSWORD
+from Database.database_setup import (
+    setup_database, get_db_config, db_available,
+    DB_NAME, DB_HOST, DB_USER, DB_PASSWORD, DB_PORT
+)
 
 # load environment variables
 load_dotenv()
@@ -31,14 +34,24 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 # In-memory store for job statuses and results (replace with a proper database/cache in production)
 job_statuses = {}
 
-# Database connection helper
+# Database connection helper with error handling
 def get_db_connection():
-    return mysql.connector.connect(
-        host=DB_HOST,
-        user=DB_USER,
-        password=DB_PASSWORD,
-        database=DB_NAME
-    )
+    """Get database connection or None if database is unavailable."""
+    try:
+        config = get_db_config()
+        config['database'] = DB_NAME
+        return mysql.connector.connect(**config)
+    except mysql.connector.Error as err:
+        print(f"Failed to connect to database: {err}")
+        return None
+    except Exception as e:
+        print(f"Unexpected error connecting to database: {e}")
+        return None
+
+def check_db_connection():
+    """Check if database is available and return status."""
+    from Database.database_setup import db_available
+    return db_available
 
 @app.route('/api/register', methods=['POST'])
 def register_user():
@@ -49,10 +62,23 @@ def register_user():
     if not mail or not password:
         return jsonify({"error": "Mail and password are required"}), 400
 
+    # Check if database is available
+    if not check_db_connection():
+        return jsonify({
+            "error": "Database connection unavailable",
+            "message": "Registration service is temporarily unavailable. Please try again later."
+        }), 503
+
     hashed_password = generate_password_hash(password)
 
     try:
         conn = get_db_connection()
+        if not conn:
+            return jsonify({
+                "error": "Database connection failed",
+                "message": "Unable to connect to the database. Please try again later."
+            }), 503
+            
         cursor = conn.cursor()
         cursor.execute("INSERT INTO users (mail, password) VALUES (%s, %s)", (mail, hashed_password))
         conn.commit()
@@ -74,8 +100,21 @@ def login_user():
     if not mail or not password:
         return jsonify({"error": "Mail and password are required"}), 400
 
+    # Check if database is available
+    if not check_db_connection():
+        return jsonify({
+            "error": "Database connection unavailable",
+            "message": "Login service is temporarily unavailable. You can still use the app in demo mode."
+        }), 503
+
     try:
         conn = get_db_connection()
+        if not conn:
+            return jsonify({
+                "error": "Database connection failed",
+                "message": "Unable to connect to the database. Please try again later."
+            }), 503
+            
         cursor = conn.cursor(dictionary=True) # Return rows as dictionaries
         cursor.execute("SELECT * FROM users WHERE mail = %s", (mail,))
         user = cursor.fetchone()
@@ -89,6 +128,9 @@ def login_user():
             return jsonify({"error": "Invalid mail or password"}), 401
     except mysql.connector.Error as err:
         print(f"Error during login: {err}")
+        return jsonify({"error": "Internal server error"}), 500
+    except Exception as e:
+        print(f"Unexpected error during login: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
 @app.route('/api/generate-questions', methods=['POST'])
@@ -192,33 +234,39 @@ def generate_questions():
             job_statuses[job_id]["session"] = quiz_session
             print(f"DEBUG: Job {job_id} completed successfully.") # Added debug print
 
-            # Save the generated quiz to the database
-            try:
-                conn = get_db_connection()
-                cursor = conn.cursor()
-                insert_query = """
-                INSERT INTO quizzes (user_id, title, quiz_data, mode, duration)
-                VALUES (%s, %s, %s, %s, %s)
-                """
-                cursor.execute(insert_query, (
-                    user_id,
-                    quiz_title,
-                    json.dumps(quiz_session), # Store quiz_session as JSON string
-                    mode,
-                    duration if mode == 'exam' else None
-                ))
-                conn.commit()
-                quiz_id = cursor.lastrowid
-                cursor.close()
-                conn.close()
-                print(f"DEBUG: Quiz saved to database with ID: {quiz_id}")
-                job_statuses[job_id]["quiz_id"] = quiz_id # Store quiz_id in job_statuses
-            except mysql.connector.Error as db_err:
-                print(f"ERROR: Database error while saving quiz: {db_err}")
-                job_statuses[job_id]["status"] = "failed"
-                job_statuses[job_id]["error"] = "Failed to save quiz to database."
-                # Re-raise to ensure the outer exception handler catches it
-                raise RuntimeError("Failed to save quiz to database.") from db_err
+            # Save the generated quiz to the database if available
+            if check_db_connection():
+                try:
+                    conn = get_db_connection()
+                    if conn:
+                        cursor = conn.cursor()
+                        insert_query = """
+                        INSERT INTO quizzes (user_id, title, quiz_data, mode, duration)
+                        VALUES (%s, %s, %s, %s, %s)
+                        """
+                        cursor.execute(insert_query, (
+                            user_id,
+                            quiz_title,
+                            json.dumps(quiz_session), # Store quiz_session as JSON string
+                            mode,
+                            duration if mode == 'exam' else None
+                        ))
+                        conn.commit()
+                        quiz_id = cursor.lastrowid
+                        cursor.close()
+                        conn.close()
+                        print(f"DEBUG: Quiz saved to database with ID: {quiz_id}")
+                        job_statuses[job_id]["quiz_id"] = quiz_id # Store quiz_id in job_statuses
+                    else:
+                        print("WARNING: Could not save quiz to database - connection failed")
+                        job_statuses[job_id]["db_save_warning"] = "Quiz generated but not saved to database"
+                except mysql.connector.Error as db_err:
+                    print(f"WARNING: Database error while saving quiz: {db_err}")
+                    # Don't fail the entire job, just warn about DB save failure
+                    job_statuses[job_id]["db_save_warning"] = "Quiz generated but could not be saved to database"
+            else:
+                print("INFO: Database not available - quiz generated but not saved")
+                job_statuses[job_id]["db_save_warning"] = "Database unavailable - quiz not saved"
 
         except (ValueError, RuntimeError) as e: # Catch specific errors for better handling
             job_statuses[job_id]["status"] = "failed"
@@ -259,8 +307,23 @@ def get_job_status(job_id):
 
 @app.route('/api/quizzes/user/<int:user_id>', methods=['GET'])
 def get_user_quizzes(user_id):
+    # Check if database is available
+    if not check_db_connection():
+        return jsonify({
+            "error": "Database connection unavailable",
+            "message": "Quiz history is temporarily unavailable. The app can still generate new quizzes.",
+            "quizzes": []  # Return empty array so frontend can handle gracefully
+        }), 503
+    
     try:
         conn = get_db_connection()
+        if not conn:
+            return jsonify({
+                "error": "Database connection failed",
+                "message": "Unable to retrieve quiz history at this time.",
+                "quizzes": []
+            }), 503
+            
         cursor = conn.cursor(dictionary=True)
         cursor.execute("SELECT quiz_id, title, mode, duration, created_at, quiz_data FROM quizzes WHERE user_id = %s", (user_id,))
         quizzes = cursor.fetchall()
@@ -278,11 +341,27 @@ def get_user_quizzes(user_id):
     except mysql.connector.Error as err:
         print(f"Error fetching user quizzes: {err}")
         return jsonify({"error": "Internal server error"}), 500
+    except Exception as e:
+        print(f"Unexpected error fetching user quizzes: {e}")
+        return jsonify({"error": "Internal server error"}), 500
 
 @app.route('/api/quizzes/<int:quiz_id>', methods=['GET'])
 def get_quiz_by_id(quiz_id):
+    # Check if database is available
+    if not check_db_connection():
+        return jsonify({
+            "error": "Database connection unavailable",
+            "message": "Quiz retrieval is temporarily unavailable."
+        }), 503
+    
     try:
         conn = get_db_connection()
+        if not conn:
+            return jsonify({
+                "error": "Database connection failed",
+                "message": "Unable to retrieve quiz at this time."
+            }), 503
+            
         cursor = conn.cursor(dictionary=True)
         cursor.execute("SELECT quiz_id, title, mode, duration, created_at, quiz_data FROM quizzes WHERE quiz_id = %s", (quiz_id,))
         quiz = cursor.fetchone()
@@ -299,6 +378,9 @@ def get_quiz_by_id(quiz_id):
     except mysql.connector.Error as err:
         print(f"Error fetching quiz by ID: {err}")
         return jsonify({"error": "Internal server error"}), 500
+    except Exception as e:
+        print(f"Unexpected error fetching quiz by ID: {e}")
+        return jsonify({"error": "Internal server error"}), 500
     
 #############
 ### tests ###
@@ -307,7 +389,43 @@ def get_quiz_by_id(quiz_id):
 
 @app.route("/api/health")
 def health_check():
-    return jsonify({"status": "ok"}), 200
+    """Health check endpoint that also reports database status."""
+    db_status = "connected" if check_db_connection() else "disconnected"
+    
+    response = {
+        "status": "ok",
+        "database": db_status,
+        "message": "Application is running"
+    }
+    
+    if db_status == "disconnected":
+        response["warning"] = "Database is not available. Some features may be limited."
+    
+    return jsonify(response), 200
+
+@app.route("/api/db-status")
+def db_status():
+    """Check database connectivity status."""
+    if check_db_connection():
+        # Try an actual connection to verify
+        try:
+            conn = get_db_connection()
+            if conn:
+                conn.close()
+                return jsonify({
+                    "status": "connected",
+                    "message": "Database is available and responding",
+                    "host": DB_HOST,
+                    "port": DB_PORT
+                }), 200
+        except:
+            pass
+    
+    return jsonify({
+        "status": "disconnected",
+        "message": "Database is not available. Application is running in limited mode.",
+        "warning": "User registration, login, and quiz history features are unavailable."
+    }), 503
 
 
 #############
@@ -317,6 +435,18 @@ def health_check():
 
 
 if __name__ == '__main__':
-    setup_database()
+    # Try to setup database but continue even if it fails
+    db_setup_success = setup_database()
+    
+    if not db_setup_success:
+        print("\n" + "="*60)
+        print("WARNING: Starting application without database")
+        print("The following features will be unavailable:")
+        print("  - User registration and login")
+        print("  - Saving quiz history")
+        print("  - Retrieving past quizzes")
+        print("\nQuiz generation will still work!")
+        print("="*60 + "\n")
+    
     app.run(host='0.0.0.0', debug=True, port=8000)
 
