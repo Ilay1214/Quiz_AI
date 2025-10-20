@@ -2,6 +2,8 @@
 """
 Test database setup and management for Quiz AI tests.
 Uses the same database as the backend application (no separate test database).
+This module NEVER creates a database or schema. It only verifies that required
+production tables exist and inserts/removes test-scoped rows using a unique prefix.
 """
 
 import mysql.connector
@@ -42,7 +44,13 @@ TEST_EMAIL_PREFIX = f"test_{TEST_RUN_ID}_"
 TEST_EMAIL_LIKE = TEST_EMAIL_PREFIX + "%"
 
 class TestDatabaseManager:
-    """Manages test database setup and cleanup."""
+    """Manages test database verification and scoped cleanup.
+
+    IMPORTANT:
+    - Never creates databases or tables.
+    - Uses the existing production tables: `users` and `quizzes`.
+    - Inserts only rows with the `TEST_EMAIL_PREFIX` and cleans them up after tests.
+    """
     
     def __init__(self):
         # Use exact same database as the backend
@@ -103,14 +111,16 @@ class TestDatabaseManager:
         return config
 
     def get_connection(self):
-        """Get a connection to the database using backend's config."""
-        # Use pooled connection like the main app
+        """Get a connection to the database using backend's config.
+        This uses the same pooled connection settings as the app.
+        """
         return get_pooled_connection(database=self.database)
-        
-    def create_test_database(self):
-        """Verify database connection and tables exist.
-        Does NOT create a new database - uses the existing production database.
-        Tables should already exist from the backend's setup_database().
+
+    def verify_existing_database(self) -> bool:
+        """Verify connection to the existing database and presence of required tables.
+        - Does NOT create any database or tables.
+        - Returns True if both `users` and `quizzes` tables exist.
+        - Returns False otherwise.
         """
         try:
             print(f"ℹ️  Connecting to database '{self.database}' at {self.host}:{self.port}")
@@ -131,25 +141,35 @@ class TestDatabaseManager:
             # Verify tables exist
             cursor.execute("SHOW TABLES LIKE 'users'")
             if not cursor.fetchone():
-                print("❌ 'users' table not found. Run backend setup first.")
+                print("❌ 'users' table not found. The backend must provision schema beforehand.")
+                cursor.close(); cnx.close()
                 return False
                 
             cursor.execute("SHOW TABLES LIKE 'quizzes'")
             if not cursor.fetchone():
-                print("❌ 'quizzes' table not found. Run backend setup first.")
+                print("❌ 'quizzes' table not found. The backend must provision schema beforehand.")
+                cursor.close(); cnx.close()
                 return False
             
             cursor.close()
             cnx.close()
             
-            print(f"✅ Database connection verified. Using '{self.database}' with existing tables.")
+            print(f"✅ Database verified. Using '{self.database}' with existing tables.")
             return True
             
         except mysql.connector.Error as err:
             print(f"❌ Error connecting to database: {err}")
             return False
+
+    # Backward-compatible alias (NO creation occurs here; just verification)
+    def create_test_database(self) -> bool:
+        """Alias for verify_existing_database().
+        Kept for backward compatibility with run_tests.py.
+        Never creates any database; only verifies it and required tables exist.
+        """
+        return self.verify_existing_database()
     
-    def clear_test_data(self):
+    def clear_test_data(self) -> bool:
         """Clear only test-created data from production database.
         Deletes only users with test email prefix and their associated quizzes.
         """
@@ -182,16 +202,15 @@ class TestDatabaseManager:
             print(f"❌ Error clearing test data: {err}")
             return False
     
-    def drop_test_database(self):
+    def drop_test_database(self) -> bool:
         """Clean up test data from the production database.
-        Never drops the database itself - only removes test-created data.
+        Never drops the database itself or any tables - only removes test-created data.
         """
-        # Just clean up test data, never drop the actual database
         return self.clear_test_data()
 
 # Global test database manager instance
 test_db = TestDatabaseManager()
 
 if __name__ == "__main__":
-    # Setup test database when run directly
-    test_db.create_test_database()
+    # Verify existing database when run directly
+    test_db.verify_existing_database()
