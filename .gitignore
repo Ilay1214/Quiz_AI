@@ -8,3 +8,4 @@ Backend/ai_models/__pycache__/*
 tests/__pycache__/
 tests/pytest_cache/*
 uploads/*
+venv/*
