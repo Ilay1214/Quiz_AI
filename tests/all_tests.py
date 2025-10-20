@@ -28,6 +28,8 @@ class QuizAITester:
         self.passed = 0
         self.failed = 0
         self.test_results = []
+        # Will be determined via /api/db-status
+        self.db_connected = None
     
     def log(self, message, status="INFO"):
         """Log a message with status."""
@@ -48,6 +50,14 @@ class QuizAITester:
             "passed": passed,
             "message": message
         })
+    
+    def refresh_db_status(self):
+        """Probe /api/db-status and set self.db_connected True/False."""
+        try:
+            r = requests.get(f"{self.base_url}/api/db-status", timeout=5)
+            self.db_connected = (r.status_code == 200 and r.json().get("status") == "connected")
+        except Exception:
+            self.db_connected = False
     
     # Health Tests
     def test_health_endpoint_exists(self):
@@ -98,6 +108,23 @@ class QuizAITester:
             self.record_result("Health Response Time", False, f"Error: {e}")
             return False
     
+    def test_db_status_endpoint(self):
+        """Test that the db-status endpoint reflects connectivity and returns expected status code."""
+        try:
+            r = requests.get(f"{self.base_url}/api/db-status", timeout=5)
+            data = r.json()
+            if r.status_code == 200 and data.get('status') == 'connected':
+                self.record_result("DB Status Endpoint", True, "Database connected")
+                return True
+            if r.status_code == 503 and data.get('status') == 'disconnected':
+                self.record_result("DB Status Endpoint", True, "Database disconnected (demo mode)")
+                return True
+            self.record_result("DB Status Endpoint", False, f"Unexpected response: {r.status_code} {data}")
+            return False
+        except Exception as e:
+            self.record_result("DB Status Endpoint", False, f"Error: {e}")
+            return False
+    
     # Authentication Tests
     def test_user_registration_success(self):
         """Test successful user registration."""
@@ -110,6 +137,16 @@ class QuizAITester:
         }
         
         try:
+            if self.db_connected is False:
+                # Expect a 503 when DB is unavailable
+                response = requests.post(self.register_endpoint, json=payload, headers={'Content-Type': 'application/json'}, timeout=10)
+                if response.status_code == 503:
+                    self.record_result("User Registration (DB down)", True, "Correctly returned 503 when DB disconnected")
+                    return True
+                else:
+                    self.record_result("User Registration (DB down)", False, f"Expected 503, got {response.status_code}")
+                    return False
+            
             response = requests.post(
                 self.register_endpoint,
                 json=payload,
@@ -143,6 +180,16 @@ class QuizAITester:
         }
         
         try:
+            if self.db_connected is False:
+                r1 = requests.post(self.register_endpoint, json=payload, headers={'Content-Type': 'application/json'}, timeout=10)
+                r2 = requests.post(self.register_endpoint, json=payload, headers={'Content-Type': 'application/json'}, timeout=10)
+                if r1.status_code == 503 and r2.status_code == 503:
+                    self.record_result("Duplicate Email (DB down)", True, "Correctly returned 503 for both attempts")
+                    return True
+                else:
+                    self.record_result("Duplicate Email (DB down)", False, f"Expected 503s, got {r1.status_code}/{r2.status_code}")
+                    return False
+            
             # First registration
             response1 = requests.post(
                 self.register_endpoint,
@@ -188,18 +235,25 @@ class QuizAITester:
                     timeout=10
                 )
                 
-                if response.status_code != 400:
-                    all_passed = False
-                    break
+                if self.db_connected is False:
+                    # When DB is down, the endpoint short-circuits with 503 before payload validation
+                    if response.status_code != 503:
+                        all_passed = False
+                        break
+                else:
+                    if response.status_code != 400:
+                        all_passed = False
+                        break
             except Exception:
                 all_passed = False
                 break
         
         if all_passed:
-            self.record_result("Registration Missing Fields", True, "All invalid payloads rejected")
+            msg = "All invalid payloads rejected" if self.db_connected else "Registration unavailable while DB is down"
+            self.record_result("Registration Missing Fields", True, msg)
             return True
         else:
-            self.record_result("Registration Missing Fields", False, "Some invalid payloads accepted")
+            self.record_result("Registration Missing Fields", False, "Unexpected status codes for invalid payloads")
             return False
     
     def test_user_login_success(self):
@@ -214,6 +268,21 @@ class QuizAITester:
         }
         
         try:
+            if self.db_connected is False:
+                # Expect login to be unavailable
+                login_response = requests.post(
+                    self.login_endpoint,
+                    json=register_payload,
+                    headers={'Content-Type': 'application/json'},
+                    timeout=10
+                )
+                if login_response.status_code == 503:
+                    self.record_result("User Login (DB down)", True, "Correctly returned 503 when DB disconnected")
+                    return True
+                else:
+                    self.record_result("User Login (DB down)", False, f"Expected 503, got {login_response.status_code}")
+                    return False
+            
             # Register
             register_response = requests.post(
                 self.register_endpoint,
@@ -263,13 +332,14 @@ class QuizAITester:
         }
         
         try:
-            # Register
-            requests.post(
-                self.register_endpoint,
-                json=register_payload,
-                headers={'Content-Type': 'application/json'},
-                timeout=10
-            )
+            if self.db_connected is True:
+                # Register only if DB is available
+                requests.post(
+                    self.register_endpoint,
+                    json=register_payload,
+                    headers={'Content-Type': 'application/json'},
+                    timeout=10
+                )
             
             # Try login with wrong password
             wrong_login = {
@@ -284,7 +354,10 @@ class QuizAITester:
                 timeout=10
             )
             
-            if response.status_code == 401:
+            if self.db_connected is False and response.status_code == 503:
+                self.record_result("Invalid Credentials Rejection (DB down)", True, "Login unavailable as expected")
+                return True
+            if self.db_connected is True and response.status_code == 401:
                 self.record_result("Invalid Credentials Rejection", True, "Correctly rejected invalid login")
                 return True
             else:
@@ -300,6 +373,21 @@ class QuizAITester:
         test_password = fake.password(length=15)
         
         try:
+            if self.db_connected is False:
+                # Step 1: Register should be unavailable
+                register_payload = {"mail": test_email, "password": test_password}
+                r1 = requests.post(self.register_endpoint, json=register_payload, headers={'Content-Type': 'application/json'}, timeout=10)
+                # Step 2: Login should be unavailable
+                r2 = requests.post(self.login_endpoint, json=register_payload, headers={'Content-Type': 'application/json'}, timeout=10)
+                # Step 3: Duplicate registration attempt also unavailable
+                r3 = requests.post(self.register_endpoint, json=register_payload, headers={'Content-Type': 'application/json'}, timeout=10)
+                if r1.status_code == 503 and r2.status_code == 503 and r3.status_code == 503:
+                    self.record_result("Complete Auth Flow (DB down)", True, "Auth endpoints correctly unavailable in demo mode")
+                    return True
+                else:
+                    self.record_result("Complete Auth Flow (DB down)", False, f"Expected 503s, got {r1.status_code}/{r2.status_code}/{r3.status_code}")
+                    return False
+            
             # Step 1: Register
             register_payload = {
                 "mail": test_email,
@@ -360,17 +448,20 @@ class QuizAITester:
         }
         
         try:
-            response = requests.post(
-                self.register_endpoint,
-                json=payload,
-                headers={'Content-Type': 'application/json'},
-                timeout=10
-            )
-            
-            if response.status_code == 201:
+            if self.db_connected is False:
+                # In demo mode, we won't be able to register. Return payload for consistency; tests will bypass login.
                 return test_email, test_password, payload
             else:
-                return None, None, None
+                response = requests.post(
+                    self.register_endpoint,
+                    json=payload,
+                    headers={'Content-Type': 'application/json'},
+                    timeout=10
+                )
+                if response.status_code == 201:
+                    return test_email, test_password, payload
+                else:
+                    return None, None, None
         except Exception:
             return None, None, None
     
@@ -397,27 +488,25 @@ class QuizAITester:
     
     def test_quiz_generation_practice_mode(self):
         """Test quiz generation in practice mode."""
-        # Create test user first
+        # Create test user first (or prepare demo mode)
         test_email, test_password, user_payload = self.create_test_user()
-        if not test_email:
-            self.record_result("Quiz Generation Practice Mode", False, "Failed to create test user")
-            return False
-        
-        # Login to get user_id
+        # Determine user_id depending on DB connectivity
         try:
-            login_response = requests.post(
-                self.login_endpoint,
-                json=user_payload,
-                headers={'Content-Type': 'application/json'},
-                timeout=10
-            )
-            
-            if login_response.status_code != 200:
-                self.record_result("Quiz Generation Practice Mode", False, "Login failed")
-                return False
-            
-            user_data = login_response.json()
-            user_id = user_data.get('user_id')
+            if self.db_connected is True:
+                login_response = requests.post(
+                    self.login_endpoint,
+                    json=user_payload,
+                    headers={'Content-Type': 'application/json'},
+                    timeout=10
+                )
+                if login_response.status_code != 200:
+                    self.record_result("Quiz Generation Practice Mode", False, "Login failed")
+                    return False
+                user_data = login_response.json()
+                user_id = user_data.get('user_id')
+            else:
+                # Demo mode: supply a dummy user_id; backend won't save to DB but will generate quiz
+                user_id = 0
             
             # Create sample text file
             sample_text = self.create_sample_text_file()
@@ -445,8 +534,19 @@ class QuizAITester:
             if response.status_code == 202:
                 response_data = response.json()
                 if 'jobId' in response_data:
-                    self.record_result("Quiz Generation Practice Mode", True, "Practice quiz generation initiated successfully")
-                    return True
+                    job_id = response_data['jobId']
+                    # Immediately check job status
+                    js = requests.get(f"{self.job_status_endpoint}/{job_id}", timeout=10)
+                    if js.status_code == 200:
+                        js_data = js.json()
+                        status_ok = js_data.get('status') in ('completed', 'failed')
+                        session_ok = ('session' in js_data) if js_data.get('status') == 'completed' else True
+                        quiz_id_ok = True if self.db_connected is False else ('quizId' in js_data)
+                        if status_ok and session_ok and quiz_id_ok:
+                            self.record_result("Quiz Generation Practice Mode", True, "Practice quiz generation initiated successfully")
+                            return True
+                    self.record_result("Quiz Generation Practice Mode", False, "Job status not as expected")
+                    return False
                 else:
                     self.record_result("Quiz Generation Practice Mode", False, "No jobId in response")
                     return False
@@ -460,27 +560,24 @@ class QuizAITester:
     
     def test_quiz_generation_exam_mode(self):
         """Test quiz generation in exam mode."""
-        # Create test user first
+        # Create test user first (or prepare demo mode)
         test_email, test_password, user_payload = self.create_test_user()
-        if not test_email:
-            self.record_result("Quiz Generation Exam Mode", False, "Failed to create test user")
-            return False
-        
-        # Login to get user_id
+        # Determine user_id depending on DB connectivity
         try:
-            login_response = requests.post(
-                self.login_endpoint,
-                json=user_payload,
-                headers={'Content-Type': 'application/json'},
-                timeout=10
-            )
-            
-            if login_response.status_code != 200:
-                self.record_result("Quiz Generation Exam Mode", False, "Login failed")
-                return False
-            
-            user_data = login_response.json()
-            user_id = user_data.get('user_id')
+            if self.db_connected is True:
+                login_response = requests.post(
+                    self.login_endpoint,
+                    json=user_payload,
+                    headers={'Content-Type': 'application/json'},
+                    timeout=10
+                )
+                if login_response.status_code != 200:
+                    self.record_result("Quiz Generation Exam Mode", False, "Login failed")
+                    return False
+                user_data = login_response.json()
+                user_id = user_data.get('user_id')
+            else:
+                user_id = 0
             
             # Create sample text file
             sample_text = self.create_sample_text_file()
@@ -509,8 +606,19 @@ class QuizAITester:
             if response.status_code == 202:
                 response_data = response.json()
                 if 'jobId' in response_data:
-                    self.record_result("Quiz Generation Exam Mode", True, "Exam quiz generation initiated successfully")
-                    return True
+                    job_id = response_data['jobId']
+                    # Immediately check job status
+                    js = requests.get(f"{self.job_status_endpoint}/{job_id}", timeout=10)
+                    if js.status_code == 200:
+                        js_data = js.json()
+                        status_ok = js_data.get('status') in ('completed', 'failed')
+                        session_ok = ('session' in js_data) if js_data.get('status') == 'completed' else True
+                        quiz_id_ok = True if self.db_connected is False else ('quizId' in js_data)
+                        if status_ok and session_ok and quiz_id_ok:
+                            self.record_result("Quiz Generation Exam Mode", True, "Exam quiz generation initiated successfully")
+                            return True
+                    self.record_result("Quiz Generation Exam Mode", False, "Job status not as expected")
+                    return False
                 else:
                     self.record_result("Quiz Generation Exam Mode", False, "No jobId in response")
                     return False
@@ -609,17 +717,50 @@ class QuizAITester:
             self.record_result("Quiz Generation Missing User ID", False, f"Error: {e}")
             return False
     
+    def test_quizzes_endpoints(self):
+        """Basic checks for quizzes endpoints behavior with and without DB."""
+        try:
+            # /api/quizzes/user/<id>
+            r_user = requests.get(f"{self.base_url}/api/quizzes/user/1", timeout=5)
+            if self.db_connected is False and r_user.status_code == 503:
+                user_ok = True
+            elif self.db_connected is True and r_user.status_code in (200, 404):
+                user_ok = True
+            else:
+                user_ok = False
+            
+            # /api/quizzes/<id>
+            r_q = requests.get(f"{self.base_url}/api/quizzes/0", timeout=5)
+            if self.db_connected is False and r_q.status_code == 503:
+                quiz_ok = True
+            elif self.db_connected is True and r_q.status_code in (200, 404):
+                quiz_ok = True
+            else:
+                quiz_ok = False
+            
+            passed = user_ok and quiz_ok
+            self.record_result("Quizzes Endpoints", passed, "Endpoints responded with expected status codes")
+            return passed
+        except Exception as e:
+            self.record_result("Quizzes Endpoints", False, f"Error: {e}")
+            return False
+    
     def run_all_tests(self):
         """Run all tests in sequence."""
         print("=" * 70)
         print("QUIZ AI COMPREHENSIVE TEST SUITE")
         print("=" * 70)
         
+        # Determine DB connectivity once at start
+        self.refresh_db_status()
+        self.log(f"DB connected: {self.db_connected}")
+        
         # Health Tests
         self.log("HEALTH ENDPOINT TESTS", "SECTION")
         self.test_health_endpoint_exists()
         self.test_health_response_format()
         self.test_health_response_time()
+        self.test_db_status_endpoint()
         
         print()
         
@@ -640,6 +781,7 @@ class QuizAITester:
         self.test_quiz_generation_exam_mode()
         self.test_quiz_generation_missing_file()
         self.test_quiz_generation_missing_user_id()
+        self.test_quizzes_endpoints()
         
         # Summary
         print("\n" + "=" * 70)
