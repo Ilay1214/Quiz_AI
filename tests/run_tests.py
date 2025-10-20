@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-Quiz AI Test Runner - Orchestrates database setup and test execution.
-This script manages the complete test lifecycle.
+Quiz AI Test Runner - Orchestrates database verification and test execution.
+This script NEVER creates databases or tables. It verifies that the existing
+schema is present and uses test-scoped data that is cleaned up after the run.
 """
 
 import subprocess
@@ -11,6 +12,7 @@ import requests
 import time
 from test_database import test_db
 
+
 def check_server_running():
     """Check if the Flask server is running."""
     try:
@@ -19,35 +21,38 @@ def check_server_running():
     except:
         return False
 
+
 def setup_test_environment():
-    """Set up the test environment."""
+    """Set up the test environment without any DDL operations."""
     print("🔧 Setting up test environment...")
     
-    # Step 1: Create test database
-    print("📋 Step 1: Creating test database...")
-    if test_db.create_test_database():
-        print("✅ Test database created successfully")
+    # Step 1: Verify existing database and schema (no creation)
+    print("📋 Step 1: Verifying existing database and schema...")
+    if test_db.verify_existing_database():
+        print("✅ Database and schema verified")
     else:
-        print("❌ Failed to create test database")
+        print("❌ Failed to verify database and schema")
         return False
     
     # Step 2: Clear any existing test data
-    print("📋 Step 2: Clearing test data...")
+    print("📋 Step 2: Clearing prior test data...")
     if test_db.clear_test_data():
-        print("✅ Test data cleared")
+        print("✅ Prior test data cleared")
     else:
-        print("❌ Failed to clear test data")
+        print("❌ Failed to clear prior test data")
         return False
     
     return True
 
+
 def cleanup_test_environment():
-    """Clean up the test environment."""
+    """Clean up test data only (no schema or DB changes)."""
     print("\n🧹 Cleaning up test environment...")
     if test_db.drop_test_database():
-        print("✅ Test database dropped successfully")
+        print("✅ Test data cleaned up successfully")
     else:
-        print("❌ Failed to drop test database")
+        print("❌ Failed to clean up test data")
+
 
 def run_all_tests():
     """Run all tests using the consolidated test file."""
@@ -70,6 +75,7 @@ def run_all_tests():
         print(f"❌ Error running tests: {e}")
         return False
 
+
 def main():
     """Main test runner function."""
     print("=" * 70)
@@ -89,7 +95,7 @@ def main():
     print("✅ Flask server is running")
     
     try:
-        # Step 1: Setup test environment
+        # Step 1: Setup test environment (verify + clear)
         if not setup_test_environment():
             return False
         
@@ -109,6 +115,7 @@ def main():
         print(f"\n❌ Unexpected error: {e}")
         cleanup_test_environment()
         return False
+
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] in ["--help", "-h"]:
