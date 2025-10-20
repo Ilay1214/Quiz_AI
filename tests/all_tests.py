@@ -181,6 +181,7 @@ class QuizAITester:
         
         try:
             if self.db_connected is False:
+                # In demo mode, we won't be able to register. Return payload for consistency; tests will bypass login.
                 r1 = requests.post(self.register_endpoint, json=payload, headers={'Content-Type': 'application/json'}, timeout=10)
                 r2 = requests.post(self.register_endpoint, json=payload, headers={'Content-Type': 'application/json'}, timeout=10)
                 if r1.status_code == 503 and r2.status_code == 503:
@@ -235,22 +236,17 @@ class QuizAITester:
                     timeout=10
                 )
                 
-                if self.db_connected is False:
-                    # When DB is down, the endpoint short-circuits with 503 before payload validation
-                    if response.status_code != 503:
-                        all_passed = False
-                        break
-                else:
-                    if response.status_code != 400:
-                        all_passed = False
-                        break
+                # Registration endpoint validates payload BEFORE DB connectivity check,
+                # so it must always return 400 for missing fields regardless of DB status.
+                if response.status_code != 400:
+                    all_passed = False
+                    break
             except Exception:
                 all_passed = False
                 break
         
         if all_passed:
-            msg = "All invalid payloads rejected" if self.db_connected else "Registration unavailable while DB is down"
-            self.record_result("Registration Missing Fields", True, msg)
+            self.record_result("Registration Missing Fields", True, "All invalid payloads rejected with 400")
             return True
         else:
             self.record_result("Registration Missing Fields", False, "Unexpected status codes for invalid payloads")
@@ -505,15 +501,15 @@ class QuizAITester:
                 user_data = login_response.json()
                 user_id = user_data.get('user_id')
             else:
-                # Demo mode: supply a dummy user_id; backend won't save to DB but will generate quiz
-                user_id = 0
+                # Demo mode: supply a positive dummy user_id; backend won't save to DB but will generate quiz
+                user_id = 1
             
             # Create sample text file
             sample_text = self.create_sample_text_file()
             
-            # Prepare file upload
+            # Prepare file upload (use bytes to avoid 400 due to text stream issues)
             files = {
-                'file': ('test_document.txt', io.StringIO(sample_text), 'text/plain')
+                'file': ('test_document.txt', io.BytesIO(sample_text.encode('utf-8')), 'text/plain')
             }
             
             data = {
@@ -577,14 +573,14 @@ class QuizAITester:
                 user_data = login_response.json()
                 user_id = user_data.get('user_id')
             else:
-                user_id = 0
+                user_id = 1
             
             # Create sample text file
             sample_text = self.create_sample_text_file()
             
-            # Prepare file upload
+            # Prepare file upload (use bytes to avoid 400 due to text stream issues)
             files = {
-                'file': ('test_document.txt', io.StringIO(sample_text), 'text/plain')
+                'file': ('test_document.txt', io.BytesIO(sample_text.encode('utf-8')), 'text/plain')
             }
             
             data = {
