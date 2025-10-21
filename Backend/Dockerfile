@@ -9,19 +9,14 @@ RUN pip install --no-cache-dir -r requirments.txt
 COPY . . 
 
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl ca-certificates tar gzip \
- && rm -rf /var/lib/apt/lists/*
-RUN set -eux; \
-    ARCH=$(uname -m); \
-    if [ "$ARCH" = "x86_64" ] || [ "$ARCH" = "amd64" ]; then DOPPLER_ARCH=x86_64; \
-    elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then DOPPLER_ARCH=aarch64; \
-    else echo "Unsupported arch: $ARCH" && exit 1; fi; \
-    curl -fsSL --retry 3 -o /tmp/doppler.tar.gz "https://cli.doppler.com/download/latest?os=linux&arch=${DOPPLER_ARCH}"; \
-    tar -xzf /tmp/doppler.tar.gz -C /usr/local/bin; \
-    rm -f /tmp/doppler.tar.gz; \
-    doppler --version
+RUN apt-get update && apt-get install -y apt-transport-https ca-certificates curl gnupg && \
+    curl -sLf --retry 3 --tlsv1.2 --proto "=https" 'https://packages.doppler.com/public/cli/gpg.DE2A7741A397C129.key' | apt-key add - && \
+    echo "deb https://packages.doppler.com/public/cli/deb/debian any-version main" | tee /etc/apt/sources.list.d/doppler-cli.list && \
+    apt-get update && \
+    apt-get -y install doppler
 
-EXPOSE 8000
+
 
 CMD ["doppler", "run", "--", "python", "app.py"]
+
+EXPOSE 8000
