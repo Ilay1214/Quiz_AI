@@ -8,6 +8,7 @@ RUN pip install --no-cache-dir -r requirments.txt
 
 COPY . . 
 
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl ca-certificates tar \
  && rm -rf /var/lib/apt/lists/*
