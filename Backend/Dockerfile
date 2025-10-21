@@ -1,24 +1,23 @@
-FROM ubuntu:24
-
-RUN apt-get update && apt-get install -y python python-pip
+FROM python:3.12-slim
 
 WORKDIR /QuizAI/Backend
 
 COPY requirments.txt .
 RUN pip install --no-cache-dir -r requirments.txt
 
+COPY . .
 
-COPY . . 
-
-
-RUN apt-get update && apt-get install -y apt-transport-https ca-certificates curl gnupg && \
-    curl -sLf --retry 3 --tlsv1.2 --proto "=https" 'https://packages.doppler.com/public/cli/gpg.DE2A7741A397C129.key' | apt-key add - && \
-    echo "deb https://packages.doppler.com/public/cli/deb/debian any-version main" | tee /etc/apt/sources.list.d/doppler-cli.list && \
+# Install Doppler via official apt repository
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates gnupg && \
+    mkdir -p /etc/apt/keyrings && \
+    curl -fsSL --retry 3 https://packages.doppler.com/public/cli/gpg.DE2A7741A397C129.key | gpg --dearmor -o /etc/apt/keyrings/doppler.gpg && \
+    echo "deb [signed-by=/etc/apt/keyrings/doppler.gpg] https://packages.doppler.com/public/cli/deb/debian any-version main" > /etc/apt/sources.list.d/doppler-cli.list && \
     apt-get update && \
-    apt-get -y install doppler
+    apt-get install -y --no-install-recommends doppler && \
+    rm -rf /var/lib/apt/lists/*
 
-
-
-CMD ["doppler", "run", "--", "python", "app.py"]
+# Verify
+RUN doppler --version
 
 EXPOSE 8000
+CMD ["doppler", "run", "--", "python", "app.py"]
