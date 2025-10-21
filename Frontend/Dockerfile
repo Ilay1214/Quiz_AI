@@ -13,8 +13,9 @@ RUN npm ci
 
 COPY . .
 
-# Set build-time environment variable for API URL (for browser access)
-ENV VITE_API_BASE=http://localhost:8000
+
+ARG VITE_API_BASE=""
+ENV VITE_API_BASE=${VITE_API_BASE}
 
 RUN npm run build
 
