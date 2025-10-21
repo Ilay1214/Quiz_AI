@@ -1,4 +1,6 @@
-FROM python:3.12-slim
+FROM ubuntu:24
+
+RUN apt-get update && apt-get install -y python python-pip
 
 WORKDIR /QuizAI/Backend
 
