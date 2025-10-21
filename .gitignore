@@ -9,3 +9,4 @@ tests/__pycache__/
 tests/pytest_cache/*
 uploads/*
 ./venv/
+Infra/k8s/secrets.yaml
