@@ -6,18 +6,18 @@ FROM node:18-alpine AS build
 
 WORKDIR /app
 
+# Install Python and build dependencies for native modules
+RUN apk add --no-cache python3 make g++
+
 COPY package.json package-lock.json ./
 
-# Install dependencies (including dev dependencies for build)
-RUN npm ci
+# Install dependencies with platform-specific rebuild
+# Force npm to rebuild native modules for Alpine
+RUN npm ci --platform=linuxmusl
 
 COPY . .
 
 # No need to set VITE_API_BASE - using relative URLs
-
-ARG VITE_API_BASE=""
-ENV VITE_API_BASE=${VITE_API_BASE}
-
 RUN npm run build
 
 ######################
