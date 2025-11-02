@@ -22,6 +22,8 @@ print(f"  MYSQL_HOST: {DB_HOST}")
 print(f"  MYSQL_PORT: {DB_PORT}")
 print(f"  MYSQL_USER: {DB_USER}")
 print(f"  MYSQL_DATABASE: {DB_NAME}")
+print(f"  DATABASE_URL: {os.getenv('DATABASE_URL')}")
+print(f"  MYSQL_URL: {os.getenv('MYSQL_URL')}")
 
 
 # SSL configuration for cloud databases (e.g., Aiven)

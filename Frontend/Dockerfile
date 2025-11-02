@@ -13,6 +13,7 @@ RUN npm ci
 
 COPY . .
 
+# No need to set VITE_API_BASE - using relative URLs
 
 ARG VITE_API_BASE=""
 ENV VITE_API_BASE=${VITE_API_BASE}
