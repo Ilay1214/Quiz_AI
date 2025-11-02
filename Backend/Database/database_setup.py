@@ -14,6 +14,8 @@ DB_USER = os.getenv("MYSQL_USER", "root")  # Allow custom user
 DB_PASSWORD = os.getenv("MYSQL_PASSWORD")  # More generic name
 DB_NAME = os.getenv("MYSQL_DATABASE", "users")  # Allow custom DB name
 
+
+
 # Debug: Print what env vars are loaded
 print(f"[DEBUG] Environment variables loaded:")
 print(f"  MYSQL_HOST: {DB_HOST}")
@@ -22,6 +24,7 @@ print(f"  MYSQL_USER: {DB_USER}")
 print(f"  MYSQL_DATABASE: {DB_NAME}")
 print(f"  DATABASE_URL: {os.getenv('DATABASE_URL')}")
 print(f"  MYSQL_URL: {os.getenv('MYSQL_URL')}")
+
 
 # SSL configuration for cloud databases (e.g., Aiven)
 # in Backend/Database/database_setup.py
