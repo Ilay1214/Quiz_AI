@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: quiz-ai-staging
+spec:
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: quiz-ai-staging
+  source:
+    repoURL: https://github.com/Ilay1214/quiz_ai_infra
+    targetRevision: main
+    path: infra/quiz-ai-helm
+    helm:
+      valueFiles:
+        - staging_values.yaml
+  project: default
+  syncPolicy:
+    syncOptions:
+      - ApplyOutOfSyncOnly=true
+      - CreateNamespace=true

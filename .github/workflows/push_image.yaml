@@ -1,28 +1,37 @@
 name: Push Image
-on: 
-    push:
-        branches:
-            - main
+on:
+  push:
+    branches: [ main ]
 
 jobs:
-    build:
-        runs-on: ubuntu-latest
-        steps:
-            
-            - name: Checkout
-              uses: actions/checkout@v4
-            
-            - name: Login to Docker Hub
-              run: docker login -u "${{ secrets.DOCKER_USERNAME }}" -p "${{ secrets.DOCKER_ACCSES_KEY }}"
-            
-            - name: Build image backend
-              run: docker build -t ${{ secrets.DOCKER_USERNAME }}/quiz-ai-backend:latest ./Backend
-            
-            - name: Build image frontend
-              run: docker build -t ${{ secrets.DOCKER_USERNAME }}/quiz-ai-frontend:latest ./Frontend
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-            - name: Push image backend
-              run: docker push ${{ secrets.DOCKER_USERNAME }}/quiz-ai-backend:latest
-            
-            - name: Push image frontend
-              run: docker push ${{ secrets.DOCKER_USERNAME }}/quiz-ai-frontend:latest
+      - name: Set SHORT_SHA
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
+
+      - name: Login to Docker Hub
+        run: docker login -u "${{ secrets.DOCKER_USERNAME }}" -p "${{ secrets.DOCKER_ACCSES_KEY }}"
+
+      - name: Build backend (latest + sha)
+        run: |
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/quiz-ai-backend:latest \
+                       -t ${{ secrets.DOCKER_USERNAME }}/quiz-ai-backend:${SHORT_SHA} ./Backend
+
+      - name: Build frontend (latest + sha)
+        run: |
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/quiz-ai-frontend:latest \
+                       -t ${{ secrets.DOCKER_USERNAME }}/quiz-ai-frontend:${SHORT_SHA} ./Frontend
+
+      - name: Push backend
+        run: |
+          docker push ${{ secrets.DOCKER_USERNAME }}/quiz-ai-backend:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/quiz-ai-backend:${SHORT_SHA}
+
+      - name: Push frontend
+        run: |
+          docker push ${{ secrets.DOCKER_USERNAME }}/quiz-ai-frontend:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/quiz-ai-frontend:${SHORT_SHA}

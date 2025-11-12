@@ -1,0 +1,41 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: app-dev
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  sources:
+    # Helm chart source
+    - repoURL: https://github.com/Ilay1214/quiz_ai_infra
+      targetRevision: main
+      path: infra/quiz-ai-helm
+      helm:
+        releaseName: quiz-ai
+        valueFiles:
+          - development_values.yaml
+    # External secrets source
+    - repoURL: https://github.com/Ilay1214/quiz_ai_infra
+      targetRevision: main
+      path: infra/manifests/dev
+      directory:
+        include: 'external-secrets-dev.yaml'
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: app-dev
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
