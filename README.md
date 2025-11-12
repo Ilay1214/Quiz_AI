@@ -1,10 +1,5 @@
 # 🧠 Quiz AI - Intelligent Quiz Generator
 
-[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://python.org)
-[![React](https://img.shields.io/badge/React-18+-61DAFB.svg)](https://reactjs.org)
-[![Flask](https://img.shields.io/badge/Flask-2.0+-000000.svg)](https://flask.palletsprojects.com)
-[![MySQL](https://img.shields.io/badge/MySQL-8.0+-4479A1.svg)](https://mysql.com)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 > Transform your documents into intelligent quizzes with AI-powered question generation
 
@@ -295,9 +290,6 @@ CMD ["python", "app.py"]
 4. Push to branch (`git push origin feature/amazing-feature`)
 5. Open Pull Request
 
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
@@ -309,6 +301,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📞 Support
 
 For support create an issue in this repository.
+
+## Infrastracture
+
+For deployment infrastracture you can find in ([here](https://github.com/Ilay1214/quiz_ai_infra))
 
 ---
 
