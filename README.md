@@ -2,14 +2,7 @@
 
 <div align="center">
 
-[![Python](https://img.shields.io/badge/Python-3.12-blue.svg)](https://python.org)
-[![React](https://img.shields.io/badge/React-18-61DAFB.svg)](https://reactjs.org)
-[![Flask](https://img.shields.io/badge/Flask-3.0-000000.svg)](https://flask.palletsprojects.com)
-[![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1.svg)](https://mysql.com)
-[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://docker.com)
-[![Kubernetes](https://img.shields.io/badge/Kubernetes-Ready-326CE5.svg)](https://kubernetes.io)
-[![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF.svg)](https://github.com/features/actions)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 
 **Transform your documents into intelligent, interactive quizzes using state-of-the-art AI technology**
 
@@ -536,16 +529,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Discussions**: [GitHub Discussions](https://github.com/yourusername/Quiz_AI/discussions)
 - **Email**: support@quiz-ai.com
 
-## 🌟 Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=yourusername/Quiz_AI&type=Date)](https://star-history.com/#yourusername/Quiz_AI&Date)
 
 ---
 
 <div align="center">
 
 **Built with ❤️ by Ilay**
-
-[![Follow on GitHub](https://img.shields.io/github/followers/ilay?style=social)](https://github.com/ilay)
 
 </div>
